@@ -1,0 +1,16 @@
+{
+  "include": ["src/*.ts"],
+  "exclude": [],
+  "compilerOptions": {
+    "noEmitOnError": false,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "ES2017",
+    "lib": ["DOM", "ES2017"]
+  }
+}

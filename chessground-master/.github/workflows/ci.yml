@@ -1,0 +1,21 @@
+name: Continuous Integration
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8.6.2
+      - uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+      - uses: github/codeql-action/analyze@v2
+      - run: pnpm install
+      - run: pnpm run lint
+      - run: pnpm run dist
