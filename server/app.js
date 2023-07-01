@@ -1,5 +1,6 @@
 const { WebSocketServer } = require('ws');
 const { nanoid }  = require("nanoid");
+require('dotenv').config();
 
 const colors = "wb";
 // Server data model
@@ -26,7 +27,7 @@ key: id
 val: Promise
 */
 
-const wss = new WebSocketServer({ port: 4321 });
+const wss = new WebSocketServer({ port: process.env.PORT ?? 4321 });
 
 function sanitizeAndFilterGames(games) {
     return JSON.stringify({
