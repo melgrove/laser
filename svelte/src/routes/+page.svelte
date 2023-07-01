@@ -292,7 +292,7 @@
                     <div class="king rule-piece-icon"></div><span style="font-weight: 600 !important">King&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Same movement as chess</span>
                 </div>
                 <div class="rule-piece">
-                    <div class="knight rule-piece-icon"></div><span style="font-weight: 600 !important">Kight&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Same movement as chess</span>
+                    <div class="knight rule-piece-icon"></div><span style="font-weight: 600 !important">Knight&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Same movement as chess</span>
                 </div>
                 <div class="rule-piece" style="margin-bottom: 10px">
                     <div class="pawn rule-piece-icon"></div><span style="font-weight: 600 !important">Pawn&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Moves diagonally, takes horizontally and vertically</span>
