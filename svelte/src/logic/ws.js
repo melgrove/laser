@@ -1,6 +1,6 @@
 export default function API(onMessage, onOpen) {
 
-    const socket = new WebSocket("ws://laser-production.up.railway.app");
+    const socket = new WebSocket("wss://laser-production.up.railway.app");
 
     socket.addEventListener("open", () => {
         // fetch games
