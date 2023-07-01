@@ -145,9 +145,23 @@ onMount(() => {
 <div class="cg-wrap cg-default-style" id="chessground" bind:this={chessgroundElement}></div>
 
 <style>
-    #chessground {
+#chessground {
     width: 500px;
     height: 500px;
+}
+
+@media only screen and (max-width: 950px) {
+    #chessground {
+        width: 80vw;
+        height: 80vw;
+    }
+}
+
+@media only screen and (max-width: 650px) {
+    #chessground {
+        width: 95vw;
+        height: 95vw;
+    }
 }
 
 .cg-wrap {
