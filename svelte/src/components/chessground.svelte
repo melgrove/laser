@@ -2,76 +2,141 @@
 import { onMount } from "svelte";
 import { Chessground } from 'chessground';
 import { getLegalMoves, getSquaresBetween } from "../logic/laser.js";
-export let winner;
+import { isGameCreated, gameSettings, themeColor } from "../stores/global.js";
 export let reset;
+export let cg = {set: () => {}, move: () => {}};
+export let onMove = () => {};
+export let moveHook = () => {};
+export let initialFen = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1";
+export let gameOver;
+export let colorMap;
 
-let fen = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1";
+let chessgroundColor = colorMap[$gameSettings.color];
+let fen = initialFen;
 let legalMoves = getLegalMoves(fen);
- 
+
 const initialConfig = {
     fen,
     turnColor: "black",
-    orientation: "black",
+    orientation: chessgroundColor,
     coordinates: false,
     movable: {
         free: false,
-        color: "black",
+        color: "both",
         dests: legalMoves,
         showDests: true,
     },
+    premovable: {
+        enabled: false,
+    }
 };
 let chessgroundElement;
 
 onMount(() => {
-    reset = () => {
-        winner = null;
-        const cg = Chessground(chessgroundElement, initialConfig);
-        cg.set({movable: {events: {after: (orig, dest) => {
-            //console.log(cg.state)
-            // Move laser back if it has shot
-            if(cg.state.pieces.get(dest).role === "queen" && orig[0] !== dest[0] && orig[1] !== dest[1]) {
-                cg.set({animation: {enabled: false}})
-                cg.move(dest, orig)
-                cg.set({animation: {enabled: true}})
-                // Remove pieces laser has shot
-                const removalSquares = new Map();
-                getSquaresBetween(orig, dest).forEach(square => removalSquares.set(square, undefined))
-                cg.setPieces(removalSquares);
-                // Laser arrow
-                cg.setShapes([{
-                    orig,
-                    dest,
-                    brush: "red"
-                }])
+    moveHook = (orig, dest) => {
+        // On move hook for API
+        onMove([orig, dest]);
+        // DEBUG chessground state
+        // console.log(cg.state)
+        // Move laser back if it has shot
+        if(cg.state.pieces.get(dest).role === "queen" && orig[0] !== dest[0] && orig[1] !== dest[1]) {
+            cg.set({animation: {enabled: false}})
+            cg.move(dest, orig)
+            cg.set({animation: {enabled: true}})
+            // Remove pieces laser has shot
+            const removalSquares = new Map();
+            getSquaresBetween(orig, dest).forEach(square => removalSquares.set(square, undefined))
+            cg.setPieces(removalSquares);
+            // Laser arrow
+            cg.setShapes([{
+                orig,
+                dest,
+                brush: $themeColor
+            }])
+        }
+
+        // Check for win condition
+        // King taken
+        let kings = new Set();
+        cg.state.pieces.forEach(val => {
+            if(val.role === "king") {
+                kings.add(val.color);
             }
-    
-            // Check for win condition
-            let kings = new Set();
-            cg.state.pieces.forEach(val => {
-                if(val.role === "king") {
-                    kings.add(val.color);
-                }
-            });
-            if(!kings.has("white")) {
-                winner = "black";
-                return;
-            } else if(!kings.has("black")) {
-                winner = "white";
+        });
+        if(!kings.has("white")) {
+            gameOver("b");
+            return;
+        } else if(!kings.has("black")) {
+            gameOver("w");
+            return;
+        }
+        // Pawn reached other side
+        const whiteWinSquares = ["h8", "g8", "h7"];
+        const blackWinSquares = ["a1", "a2", "b1"];
+        for(let square of whiteWinSquares) {
+            const val = cg.state.pieces.get(square);
+            if(val?.role === "pawn" && val?.color === "white") {
+                gameOver("w");
                 return;
             }
-    
-            // Calculate new legal laser moves
-            const fen = `${cg.getFen()} ${cg.state.turnColor[0]} - - 0 1`;
-            const legalMoves = getLegalMoves(fen);
-            cg.set({movable: {
+        }
+        for(let square of blackWinSquares) {
+            const val = cg.state.pieces.get(square);
+            if(val?.role === "pawn" && val?.color === "black") {
+                gameOver("b");
+                return;
+            }
+        }
+
+
+        // Calculate new legal moves
+        const fen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]} - - 0 1`;
+        $gameSettings.fen = fen
+        const legalMoves = getLegalMoves(fen);
+        cg.set({
+            movable: {
                 free: false,
-                color: cg.state.turnColor,
                 dests: legalMoves,
                 showDests: true,
-            }});
-        }}}});
+                events: {
+                    after: moveHook,
+                },
+            },
+            turnColor: colorMap[$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]]
+        });
+    };
+    reset = (resetGameState = false) => {
+        // Reset game state
+        if(resetGameState) {
+            $gameSettings = {
+                isPlaying: false,
+                color: "b",
+                fen: null,
+                key: null,
+                id: null,
+                winner: null,
+                turnColor: "b",
+            };
+        }
+        // Prevent mutation
+        const currentConfig = Object.assign({}, initialConfig);
+        currentConfig.movable = Object.assign({}, initialConfig.movable);
+        // Update color
+        let chessgroundColor = colorMap[$gameSettings.color];
+        currentConfig.orientation = chessgroundColor;
+        currentConfig.movable.color = $gameSettings.isPlaying ? chessgroundColor : "both";
+
+        // New chessground instance
+        cg = Chessground(chessgroundElement, currentConfig);
+        // Add current brush
+        cg.state.drawable.brushes = {
+            [$themeColor]: {key: $themeColor, color: $themeColor, opacity: 1, lineWidth: 10}
+        };
+        // Set function to fire after move
+        cg.set({movable: {events: {after: moveHook}}});
     }
-    reset();
+    // Initial configuration
+    reset(true);
 })
 
 

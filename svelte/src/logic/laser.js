@@ -106,14 +106,19 @@ export function getLegalMoves(fen) {
                         currentPos = squareTranslation(currentPos, direction);
                     }
                     if(validDirection) {
+                        const squaresBetween = getSquaresBetween(square, prevPos)
                         addToMap(dests, square, prevPos);
+                        // Add laser squares that all have the same effect
+                        // TODO: make the piece go the full distance
+                        //squaresBetween.forEach(e => {
+                        //    addToMap(dests, square, e);
+                        //})
                     }
                 }
             break;
 
         }
     }
-
     return dests;
 }
 
@@ -131,6 +136,5 @@ export function getSquaresBetween(orig, dest) {
         squares.push(newSquare);
         newSquare = squareTranslation(newSquare, direction);
     }
-    console.log(squares);
     return squares;
 }
