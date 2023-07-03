@@ -1,13 +1,22 @@
 export default function API(onMessage, onOpen) {
 
-    const socket = new WebSocket("wss://laser-production.up.railway.app");
-    //const socket = new WebSocket("ws://localhost:4321");
+    const WS_URL = "wss://api.playlaser.xyz";
+    //const WS_URL = "ws://localhost:4321";
+
+    const socket = new WebSocket(WS_URL);
 
     socket.addEventListener("open", () => {
         // fetch games
         socket.send(JSON.stringify({
             messageType: "games",
         }));
+
+        // ping every nine seconds to keep the connection alive (unclear how important this is)
+        setInterval(() => {
+            socket.send(JSON.stringify({
+                messageType: "ping",
+            }));
+        }, 9_000);
     });
       
     // receive a message from the server

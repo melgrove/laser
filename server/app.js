@@ -303,6 +303,11 @@ function makeMessageHandler(ws) {
                         }
                     }
                     break;
+                case "ping":
+                    ws.send(JSON.stringify({
+                        status: "pong",
+                    }));
+                    break;
             }
         } catch(err) {
             console.error(err);

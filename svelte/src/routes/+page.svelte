@@ -129,6 +129,9 @@
                 invalidTextInput = true;
                 invalidTextMessage = "Choose a name to play as";
                 break;
+            case "pong":
+                // server has responded to the keep alive ping
+                break;
         }
     }
 
