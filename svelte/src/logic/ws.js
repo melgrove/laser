@@ -1,3 +1,5 @@
+import { isOnline } from "../stores/global.js";
+
 export default function API(onMessage, onOpen) {
 
     const WS_URL = "wss://api.playlaser.xyz";
@@ -11,12 +13,20 @@ export default function API(onMessage, onOpen) {
             messageType: "games",
         }));
 
-        // ping every fifty five seconds to keep the connection alive (unclear how important this is)
+        // ping every nine seconds to keep the connection alive (unclear how important this is)
         setInterval(() => {
             socket.send(JSON.stringify({
                 messageType: "ping",
             }));
-        }, 55_000);
+        }, 9_000);
+    });
+
+    socket.addEventListener("error", () => {
+        isOnline.set(false);
+    });
+
+    socket.addEventListener("close", () => {
+        isOnline.set(false);
     });
       
     // receive a message from the server
