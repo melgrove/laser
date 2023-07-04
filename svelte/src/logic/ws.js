@@ -11,12 +11,12 @@ export default function API(onMessage, onOpen) {
             messageType: "games",
         }));
 
-        // ping every nine seconds to keep the connection alive (unclear how important this is)
+        // ping every fifty five seconds to keep the connection alive (unclear how important this is)
         setInterval(() => {
             socket.send(JSON.stringify({
                 messageType: "ping",
             }));
-        }, 9_000);
+        }, 55_000);
     });
       
     // receive a message from the server

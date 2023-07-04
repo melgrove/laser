@@ -2,7 +2,7 @@
 import { onMount } from "svelte";
 import { Chessground } from 'chessground';
 import { getLegalMoves, getSquaresBetween } from "../logic/laser.js";
-import { isGameCreated, gameSettings, themeColor } from "../stores/global.js";
+import { isGameCreated, gameSettings, themeColor, defaultBrushes } from "../stores/global.js";
 export let reset;
 export let cg = {set: () => {}, move: () => {}};
 export let onMove = () => {};
@@ -63,16 +63,23 @@ onMount(() => {
                 kings.add(val.color);
             }
         });
+        /* TODO: draws 
+        if(kings.size === 0) {
+            gameOver("draw");
+            return;
+        }
+        */
         if(!kings.has("white")) {
             gameOver("b");
             return;
-        } else if(!kings.has("black")) {
+        }
+        if(!kings.has("black")) {
             gameOver("w");
             return;
         }
         // Pawn reached other side
-        const whiteWinSquares = ["h8", "g8", "h7"];
-        const blackWinSquares = ["a1", "a2", "b1"];
+        const whiteWinSquares = ["h8", "h7", "h6", "h5", "g8", "f8", "e8"];
+        const blackWinSquares = ["a1", "a2", "a3", "a4", "b1", "c1", "d1"];
         for(let square of whiteWinSquares) {
             const val = cg.state.pieces.get(square);
             if(val?.role === "pawn" && val?.color === "white") {
@@ -128,12 +135,23 @@ onMount(() => {
 
         // New chessground instance
         cg = Chessground(chessgroundElement, currentConfig);
-        // Add current brush
-        cg.state.drawable.brushes = {
-            [$themeColor]: {key: $themeColor, color: $themeColor, opacity: 1, lineWidth: 10}
-        };
         // Set function to fire after move
-        cg.set({movable: {events: {after: moveHook}}});
+        cg.set({
+            movable: {
+                events: {
+                    after: moveHook
+                }
+            },
+            // Add current color as brush
+            drawable: {
+                brushes: {
+                    // Default brushes
+                    ...defaultBrushes,
+                    // New custom brush
+                    [$themeColor]: {key: $themeColor, color: $themeColor, opacity: 1, lineWidth: 10}
+                }
+            }
+        });
     }
     // Initial configuration
     reset(true);

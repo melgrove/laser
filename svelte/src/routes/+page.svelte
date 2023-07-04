@@ -1,7 +1,7 @@
 <script>
     import { onMount } from "svelte";
-    import { isGameCreated, isOnline, nConnections, themeColor, playerName, gameSettings, opponentName, opponentTime, playerTime } from "../stores/global.js";
-    import { TextInput, NumberInput, ContentSwitcher, Switch, Button, Checkbox, RadioButtonGroup, RadioButton  } from "carbon-components-svelte";
+    import { defaultBrushes, isGameCreated, isOnline, nConnections, themeColor, playerName, gameSettings, opponentName, opponentTime, playerTime } from "../stores/global.js";
+    import { TextInput, NumberInput, Button, RadioButtonGroup, RadioButton  } from "carbon-components-svelte";
     import "carbon-components-svelte/css/white.css";
     import Chessground from "../components/chessground.svelte";
     import wsAPI from "../logic/ws.js";
@@ -52,11 +52,16 @@
         return (hrs === 0 ? '' : hrs + ':') + mins + ':' + (secs < 10 ? "0" + secs : secs);
     }
     function addBrush() {
-        if(cg?.state) {
+        if(cg?.set) {
             // Clear previous brushes and add new brush
-            cg.state.drawable.brushes = {
-                [$themeColor]: {key: $themeColor, color: $themeColor, opacity: 1, lineWidth: 10}
-            };
+            cg.set({
+                drawable: {
+                    brushes: {
+                        ...defaultBrushes,
+                        [$themeColor]: {key: $themeColor, color: $themeColor, opacity: 1, lineWidth: 10}
+                    }
+                }
+            });
         }
     }
     function onMessage(data) {
@@ -302,7 +307,7 @@
                 </div>
                 <span style={`font-style: italic; color: ${$themeColor}`}>Winning</span><br>
                 <div class="winning-rules" style="margin-top: 6px; margin-bottom: 10px;">
-                    <span>Take your opponent's King</span> or <span>move one of your pawns to the three squares in the opposite corner</span>, for black that's a1, a2, b1 and for white that's h8, h7, g8.
+                    <span>Take your opponent's King</span> or <span>move one of your pawns to the seven squares in the opposite corner</span>, for black that's a1, a2, a3, a4, b1, c1, d1 and for white that's h8, h7, h6, h5, g8, f8, e8.
                 </div>
                 <span style={`font-style: italic; color: ${$themeColor}`}>Gameplay</span><br>
                 <div class="winning-rules" style="margin-top: 6px">
