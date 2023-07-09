@@ -2,8 +2,8 @@ import { isOnline } from "../stores/global.js";
 
 export default function API(onMessage, onOpen) {
 
-    const WS_URL = "wss://api.playlaser.xyz";
-    //const WS_URL = "ws://localhost:4321";
+    //const WS_URL = "wss://api.playlaser.xyz";
+    const WS_URL = "ws://localhost:4321";
 
     const socket = new WebSocket(WS_URL);
 

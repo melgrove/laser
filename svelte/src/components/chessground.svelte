@@ -11,9 +11,11 @@ export let initialFen = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1";
 export let gameOver;
 export let colorMap;
 
+let initialFenPremove = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 w - - 0 1";
 let chessgroundColor = colorMap[$gameSettings.color];
 let fen = initialFen;
 let legalMoves = getLegalMoves(fen);
+let legalPremoves = getLegalMoves(initialFenPremove);
 
 const initialConfig = {
     fen,
@@ -28,6 +30,11 @@ const initialConfig = {
     },
     premovable: {
         enabled: false,
+        showDests: true,
+        dests: ["h4"],
+    },
+    events: {
+        select: (key) => cg.state.premovable.dests = ["h4"]
     }
 };
 let chessgroundElement;
@@ -63,12 +70,10 @@ onMount(() => {
                 kings.add(val.color);
             }
         });
-        /* TODO: draws 
         if(kings.size === 0) {
-            gameOver("draw");
+            gameOver("d");
             return;
         }
-        */
         if(!kings.has("white")) {
             gameOver("b");
             return;
@@ -98,8 +103,10 @@ onMount(() => {
 
         // Calculate new legal moves
         const fen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]} - - 0 1`;
+        const premoveFen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor) : cg.state.turnColor[0]} - - 0 1`
         $gameSettings.fen = fen
         const legalMoves = getLegalMoves(fen);
+        const legalPremoves = getLegalMoves(premoveFen);
         cg.set({
             movable: {
                 free: false,
@@ -108,6 +115,11 @@ onMount(() => {
                 events: {
                     after: moveHook,
                 },
+            },
+            premovable: {
+                enabled: true,
+                showDests: true,
+                dests: ["h4"],
             },
             turnColor: colorMap[$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]]
         });
@@ -168,10 +180,10 @@ onMount(() => {
     height: 500px;
 }
 
-@media only screen and (max-width: 950px) {
+@media only screen and (max-width: 1082px) {
     #chessground {
-        width: 80vw;
-        height: 80vw;
+        width: 65vw;
+        height: 65vw;
     }
 }
 
