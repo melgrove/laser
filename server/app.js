@@ -1,312 +1,251 @@
 const { WebSocketServer } = require('ws');
 const { nanoid }  = require("nanoid");
 require('dotenv').config();
-
 const colors = "wb";
-// Server data model
+
+/** 
+ * Server data model
+ */
 const games = {}
 /*
 key: id
 val: {
     fen: string,
     turn: "w" | "b",
-    time: [number, number], // white ms, black ms
+    times: [number, number], // white ms, black ms
+    increments: [number, number], // white ms, black ms
     lastMove: string | null,
     lastMoveTime: string | null,
     name: [string | null, string | null], // white, black
     key: [string | null, string | null], // white, black
-    winner: "w" | "b" | null,
     wsIDs: [string | null, string | null], // white, black
 }
 */
-
-const timeoutPromise = {}
+const serverClock = {}
 /*
-TODO: doing this client side for now
 key: id
-val: Promise
+val: Promise which tracks the running clock and ends the game on expiration
+*/
+const serverClockRejections = {}
+/*
+key: id
+val: Promise rejector function for rejecting the previous running clock promise
 */
 
+/** 
+ * Web socket http server
+ */
 const wss = new WebSocketServer({ port: process.env.PORT ?? 4321 });
+wss.on('connection', function connection(ws) {
+    // Add unique ID to client
+    ws.id = nanoid();
 
-function sanitizeAndFilterGames(games) {
-    return JSON.stringify({
-        status: "games",
-        data: {
-            // Remove keys before sending!
-            games: Object.entries(games)
-                .map(game => {
-                    const gameID = game[0]
-                    const gameCopy = Object.assign({}, game[1]);
-                    delete gameCopy.key;
-                    delete gameCopy.wsIDs;
-                    gameCopy.id = gameID;
-                    return gameCopy;
-                })
-                .filter(g => (g.name[0] === null || g.name[1] === null) && g.winner === null),
-            nConnections: wss.clients.size,
-        }
-    })
-}
+    ws.on('error', console.error);
 
-function broadcastResult(winnerColor, conn1, conn2) {
-    // Send to winner
-    conn1.send(JSON.stringify({
-        status: "gameOver",
-        data: {
-            winner: winnerColor,
-        }
-    }));
-    // Send to loser
-    if(conn2) {
-        conn2.send(JSON.stringify({
-            status: "gameOver",
-            data: {
-                winner: winnerColor
-            }
-        }));
-    }
-}
+    ws.on('message', makeMessageHandler(ws));
+});
 
-function getOpponentConn(game, opponentIndex) {
-    return Array.from(wss.clients).filter(client => client.id === game.wsIDs[opponentIndex])[0];
-}
-
+/** 
+ * Socket message handler
+ */
 function makeMessageHandler(ws) {
     return (data) => {
-        // Monster try / catch
+        // Catch all errors and don't crash node
         try {
             const body = JSON.parse(data);
             switch (body.messageType) {
                 case "create":
-                    if(body.data.name.length < 1) {
-                        ws.send(JSON.stringify({
-                            status: "noName"
-                        }));
-                        break;
-                    }
-                    if(Object.values(games).filter(g => g.winner === null && g.name.some(n => n === null)).reduce((acc, el) => [...acc, ...el.name], []).includes(body.data.name)) {
-                        ws.send(JSON.stringify({
-                            status: "nameTaken"
-                        }));
-                        break;
-                    }
-                    const gameID = nanoid();
-                    const playerKey = nanoid();
-                    const gameData = {
-                        // no validation
-                        fen: body.data.fen,
-                        turn: "b",
-                        time: body.data.time,
-                        lastMove: null,
-                        lastMoveTime: null,
-                        name: [null, null],
-                        key: [null, null],
-                        winner: null,
-                        wsIDs: [null, null]
-                    };
-                    const colorIndex = body.data.color === "w" ? 0 : 1;
-                    gameData.name[colorIndex] = body.data.name;
-                    gameData.key[colorIndex] = playerKey;
-                    gameData.wsIDs[colorIndex] = ws.id;
-                    games[gameID] = gameData;
-                    // Send successful create response
-                    ws.send(JSON.stringify({
-                        status: "created",
-                        // Client data model:
-                        data: { 
-                            key: gameData.key[colorIndex],
-                            id: gameID,
-                        },
-                    }));
-                    // Send new game data to all clients
-                    wss.clients.forEach(client => client.send(sanitizeAndFilterGames(games)))
-                    break;
-                case "join":
-                    if(body.data.name.length < 1) {
-                        ws.send(JSON.stringify({
-                            status: "noName"
-                        }));
-                        break;
-                    }
-                    if(Object.values(games).filter(g => g.winner === null && g.name.some(n => n === null)).reduce((acc, el) => [...acc, ...el.name], []).includes(body.data.name)) {
-                        ws.send(JSON.stringify({
-                            status: "nameTaken"
-                        }));
-                        break;
-                    }
-                    const game = games[body.data.id];
-                    // Validity check
-                    if(game && game.name.includes(null) && !game.name.includes(body.data.name)) {
-                        const colorIndex = game.name.indexOf(null);
-                        const creatorColorIndex = colorIndex === 0 ? 1 : 0;
-                        // Now check if the game creator is still connected
-                        if(!Array.from(wss.clients).map(c => c.id).includes(game.wsIDs[creatorColorIndex])) {
-                            // Not found
-                            ws.send(JSON.stringify({
-                                status: "notFound",
-                                data: {
-                                    message: "Game not found or already started",
-                                }
-                            }))
-                            // Remove game
-                            delete games[body.data.id];
-                            // Send the new games list
-                            ws.send(sanitizeAndFilterGames(games));
+                    // Block scope
+                    {
+                        const nameValidationError = isNameInvalid(body.data.name);
+                        if(nameValidationError) {
+                            ws.send(makeMessage(nameValidationError));
                             break;
                         }
-                        game.name[colorIndex] = body.data.name;
-                        game.key[colorIndex] = nanoid();
-                        game.wsIDs[colorIndex] = ws.id;
-                        game.lastMoveTime = Date.now()
-                        // Send to challenger
-                        ws.send(JSON.stringify({
-                            status: "joined",
-                            data: {
+                        // Name validated
+                        const gameID = nanoid();
+                        const playerKey = nanoid();
+                        const gameData = {
+                            fen: body.data.fen,
+                            turn: "b",
+                            times: body.data.times,
+                            increments: body.data.increments ?? [0, 0],
+                            lastMove: null,
+                            lastMoveTime: null,
+                            name: [null, null],
+                            key: [null, null],
+                            wsIDs: [null, null]
+                        };
+                        const colorIndex = body.data.color === "w" ? 0 : 1;
+                        gameData.name[colorIndex] = body.data.name;
+                        gameData.key[colorIndex] = playerKey;
+                        gameData.wsIDs[colorIndex] = ws.id;
+                        games[gameID] = gameData;
+                        // Send successful create response
+                        ws.send(makeMessage("created", {
+                            key: gameData.key[colorIndex],
+                            id: gameID,
+                        }));
+                        // Send new game data to all clients
+                        wss.clients.forEach(client => client.send(makeMessage("games", {
+                            games: getGames(games),
+                            nConnections: getNConnections(),
+                        })));
+                    }
+                    break;
+                case "join":
+                    // Block scope
+                    {
+                        const nameValidationError = isNameInvalid(body.data.name);
+                        if(nameValidationError) {
+                            ws.send(makeMessage(nameValidationError));
+                            break;
+                        }
+                        const game = games[body.data.id];
+                        // Validity check
+                        if(game && game.name.includes(null) && !game.name.includes(body.data.name)) {
+                            const colorIndex = game.name.indexOf(null);
+                            const creatorColorIndex = colorIndex === 0 ? 1 : 0;
+                            // Now check if the game creator is still connected
+                            if(!Array.from(wss.clients).map(c => c.id).includes(game.wsIDs[creatorColorIndex])) {
+                                // Not found
+                                ws.send(makeMessage("notFound"));
+                                // Remove game
+                                delete games[body.data.id];
+                                // Send new game data to all clients (disconnected game has been removed)
+                                wss.clients.forEach(client => client.send(makeMessage("games", {
+                                    games: getGames(games),
+                                    nConnections: getNConnections(),
+                                })));
+                                break;
+                            }
+                            game.name[colorIndex] = body.data.name;
+                            game.key[colorIndex] = nanoid();
+                            game.wsIDs[colorIndex] = ws.id;
+                            
+                            // Send to challenger
+                            ws.send(makeMessage("joined", {
                                 fen: game.fen,
                                 key: game.key[colorIndex],
                                 id: body.data.id,
                                 names: game.name,
-                                times: game.time,
+                                times: game.times,
                                 index: colorIndex,
                                 color: colors[colorIndex],
-                            },
-                        }));
-                        // Send to game creator
-                        let gameCreatorWsConnection = getOpponentConn(game, creatorColorIndex);
-                        gameCreatorWsConnection.send(JSON.stringify({
-                            status: "joined",
-                            data: {
+                            }));
+                            // Send to game creator
+                            let gameCreatorWsConnection = getOpponentConn(game, creatorColorIndex);
+                            gameCreatorWsConnection.send(makeMessage("joined", {
                                 fen: game.fen,
                                 key: game.key[creatorColorIndex],
                                 id: body.data.id,
                                 names: game.name,
-                                times: game.time,
+                                times: game.times,
                                 index: creatorColorIndex,
                                 color: colors[creatorColorIndex],
-                            }
-                        }));
-                    } else {
-                        ws.send(JSON.stringify({
-                            status: "notFound",
-                            data: {
-                                message: "Game not found or already started",
-                            }
-                        }))
+                            }));
+
+                            // Start internal clock
+                            game.lastMoveTime = Date.now();
+                            startInternalClock(body.data.id, "w", ws, gameCreatorWsConnection) // white wins on initial expiration
+
+                            // Send new game data to all clients (joined game is not longer present)
+                            wss.clients.forEach(client => client.send(makeMessage("games", {
+                                games: getGames(games),
+                                nConnections: getNConnections(),
+                            })));
+                        } else {
+                            ws.send(makeMessage("notFound"));
+                        }
                     }
                     break;
                 case "move":
-                    // validate them
-                    let {key, id, name, fen, move} = body.data
-                    if(games[id] && games[id]?.key[games[id]?.name.indexOf(name)] === key) {
-                        // validated
-                        const colorIndex = games[id]?.name.indexOf(name);
-                        const otherPlayerColorIndex = colorIndex === 0 ? 1 : 0;
-                        const game = games[id];
-                        // make sure it's their turn 
-                        if(game.turn === colors[colorIndex]) {
-                            // Now the move will be made
-                            game.fen = fen;
-                            game.turn =  (game.turn === "w" ? "b" : "w");
-                            game.lastMove = move;
-                            // Calculate the time spent on the move and update the time
-                            game.time[colorIndex] = game.time[colorIndex] - (Date.now() - game.lastMoveTime)
-                            /*
-                            // TODO: doing this client side for now
-                            // Set the timer which ends the game due to timeout
-    
-                            const timestamp = Date.now()
-                            timeoutPromise[id] = timestamp;
-                            const tp = new Promise((resolve, reject) => {
-                                setTimeout(() => {
-                                    console.log("timeout fired: " + colors[colorIndex === 0 ? 1 : 0]);
-                                    console.log(timestamp, timeoutPromise[id])
-                                    if(timeoutPromise[id] === timestamp) {
-                                        resolve(colors[colorIndex === 0 ? 1 : 0]);
-                                    }
-                                }, game.time[colorIndex]);
-                            });
-                            tp.then((winner) => {
-                                console.log(winner)
-                                const opponentConn = getOpponentConn(game, colorIndex === 0 ? 1 : 0)
-                                broadcastResult(winner, ws, opponentConn);
-                            })
-                            */
-                            game.lastMoveTime = Date.now();
-                            if(game.time < 0) {
-                                // Game over loss
-                                game.winner = colors[colorIndex];
-                                // Broadcast result
-                                const otherPlayerWsConnection = getOpponentConn(game, otherPlayerColorIndex);
-                                broadcastResult(game.winner, ws, otherPlayerWsConnection);
-                            } else {
+                    // Block scope
+                    {
+                        // validate them
+                        let { key, id, name, fen, move } = body.data
+                        // Game must exist and the secret key must be correct
+                        if(games[id] && games[id]?.key[games[id]?.name.indexOf(name)] === key) {
+                            // validated
+                            const colorIndex = games[id]?.name.indexOf(name);
+                            const game = games[id];
+                            const opponentColorIndex = colorIndex === 0 ? 1 : 0;
+                            const opponentWsConnection = getOpponentConn(game, opponentColorIndex);
+                            // make sure it's their turn 
+                            if(game.turn === colors[colorIndex]) {
+                                // Calculate the time spent on the move and update the time
+                                game.times[colorIndex] = game.times[colorIndex] - (Date.now() - game.lastMoveTime) + game.increments[colorIndex];
+                                game.lastMoveTime = Date.now();
+                                // Set the internal clock for the newly moved player
+                                // turn of the just-moved player wins if the next to move player runs out of time
+                                startInternalClock(id, game.turn, ws, opponentWsConnection) 
+                                
+                                // Now the move will be made
+                                game.fen = fen;
+                                game.turn =  (game.turn === "w" ? "b" : "w");
+                                game.lastMove = move;
+                                
                                 // Send to mover
-                                ws.send(JSON.stringify({
-                                    status: "moved",
-                                    data: {
-                                        times: game.time[colorIndex],
-                                        move
-                                    }
+                                ws.send(makeMessage("moved", {
+                                    times: game.times,
+                                    move
                                 }));
                                 // Send to other player
-                                const otherPlayerWsConnection = Array.from(wss.clients).filter(client => client.id === game.wsIDs[otherPlayerColorIndex])[0];
-                                otherPlayerWsConnection.send(JSON.stringify({
-                                    status: "moved",
-                                    data: {
-                                        times: game.time[colorIndex],
-                                        move
-                                    }
+                                opponentWsConnection.send(makeMessage("moved", {
+                                    times: game.times,
+                                    move
                                 }));
+                            } else {
+                                // Not the player's turn
+                                ws.send(makeMessage("notYourMove"));
                             }
                         } else {
-                            // Not the player's turn
-                            ws.send(JSON.stringify({
-                                status: "notYourMove",
-                                data: {
-                                    message: "Not your move"
-                                }
-                            }))
+                            // either game doesn't exist, name key combination doesn't match, or it's over
+                            ws.send(makeMessage("invalid"))         
                         }
-    
-                    } else {
-                        // either game doesn't exist or name key combination doesn't match
-                        ws.send(JSON.stringify({
-                            status: "invalid",
-                            data: {
-                                message: "Invalid"
-                            }
-                        }))         
                     }
                     break;
                 case "games":
-                    ws.send(sanitizeAndFilterGames(games));
-                    break;
-                case "resign":
-                    // validate them
+                    // Block scope
                     {
-                        let {key, id, name} = body.data;
+                        ws.send(makeMessage("games", {
+                            games: getGames(games),
+                            nConnections: getNConnections(),
+                        }));
+                    }
+                    break;
+                case "end":
+                    // Block scope
+                    {
+                        let { key, id, name, isDraw = false } = body.data;
+                        // Game must exist and the secret key must be correct
                         if(games[id] && games[id]?.key[games[id]?.name.indexOf(name)] === key) {
                             // validated
                             const game = games[id];
                             const colorIndex = games[id]?.name.indexOf(name);
-                            game.winner = (colorIndex === 0 ? "b" : "w")
-                            const opponentConn = getOpponentConn(game, colorIndex === 0 ? 1 : 0);
-                            broadcastResult(game.winner, ws, opponentConn);
+                            // Implicit resign, draw if specified
+                            const winner = isDraw ? "d" : (colorIndex === 0 ? "b" : "w")
+                            // Send result
+                            const opponentConn = getOpponentConn(game, colorIndex === 0 ? 1 : 0); // Undefined if ended game has not started
+                            broadcastResult(winner, game.times, ws, opponentConn);
+                            // Delete game
+                            if(serverClockRejections[id]) {
+                                serverClockRejections[id]();
+                            }
+                            delete serverClock[id];
+                            delete serverClockRejections[id];
+                            delete games[id];
+
+                            // Send new game data to all clients (ended game has been removed)
+                            wss.clients.forEach(client => client.send(makeMessage("games", {
+                                games: getGames(games),
+                                nConnections: getNConnections(),
+                            })));
                         } else {
                             // either game doesn't exist or name key combination doesn't match
-                            ws.send(JSON.stringify({
-                                status: "invalid",
-                                data: {
-                                    message: "Invalid"
-                                }
-                            }))      
+                            ws.send(makeMessage("invalid"));      
                         }
                     }
-                    break;
-                case "ping":
-                    ws.send(JSON.stringify({
-                        status: "pong",
-                    }));
                     break;
             }
         } catch(err) {
@@ -316,11 +255,87 @@ function makeMessageHandler(ws) {
     };
 }
 
-wss.on('connection', function connection(ws) {
-    // Add unique ID to client
-    ws.id = nanoid();
 
-    ws.on('error', console.error);
+/** 
+ * Helper functions
+ */
 
-    ws.on('message', makeMessageHandler(ws));
-});
+function makeMessage(status, data) {
+    const responseObject = { status };
+    if(data !== undefined) {
+        responseObject.data = data;
+    }
+    return JSON.stringify(responseObject);
+}
+
+function getGames(games) {
+    return Object.entries(games)
+        .filter(g => (g[1].name[0] === null || g[1].name[1] === null))
+        .map(game => {
+            const gameID = game[0]
+            // Prevent mutation
+            const gameCopy = Object.assign({}, game[1]);
+            delete gameCopy.key;
+            delete gameCopy.wsIDs;
+            gameCopy.id = gameID;
+            return gameCopy;
+        });
+}
+
+function getNConnections() {
+    return wss.clients.size;
+}
+
+function isNameInvalid(name) {
+    if(typeof name !== "string" || name.length < 1) {
+        return "noName";
+    }
+    // Name cannot match a name in existing games that have not started
+    if(Object.values(games)
+    .filter(g => g.name.some(n => n === null))
+    .reduce((acc, el) => [...acc, ...el.name], [])
+    .includes(name)) {
+        return "nameTaken";
+    }
+    return false;
+}
+
+function broadcastResult(winner, times, conn1, conn2) {
+    // Send to winner
+    conn1.send(makeMessage("gameOver", { winner, times }));
+    // Send to loser
+    if(conn2) {
+        conn2.send(makeMessage("gameOver", { winner, times }));
+    }
+}
+
+function getOpponentConn(game, opponentIndex) {
+    return Array.from(wss.clients).filter(client => client.id === game.wsIDs[opponentIndex])[0];
+}
+
+function startInternalClock(id, winnerOnClockExpiration, playerConn, opponentConn) {
+    // Reject the old promise clock if it exists
+    if(id in serverClock) {
+        serverClockRejections[id]();
+    }
+    const loserOnClockExpirationIndex = winnerOnClockExpiration === "b" ? 0 : 1;
+    serverClock[id] = new Promise((resolve, reject) => {
+        // Save rejection function for above
+        serverClockRejections[id] = reject;
+        // Resolve after time is out
+        setTimeout(() => {
+            resolve(winnerOnClockExpiration);
+        }, games[id].times[loserOnClockExpirationIndex]) // Use time of who wouldn't win on expiration
+    })
+    // End game
+    .then(winningColor => {
+        games[id].times[loserOnClockExpirationIndex] = 0;
+        broadcastResult(winningColor, games[id].times, playerConn, opponentConn);
+        // Delete game
+        delete serverClock[id];
+        delete serverClockRejections[id];
+        delete games[id];
+    })
+    // Catch old clock rejection
+    .catch(() => {}); // Do nothing
+}
