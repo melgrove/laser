@@ -1,14 +1,14 @@
 <script>
     import { onMount } from "svelte";
-    import { defaultBrushes, isGameCreated, isOnline, nConnections, themeColor, playerName, gameSettings, opponentName, opponentTime, playerTime } from "../stores/global.js";
+    import { defaultBrushes, isGameCreated, isOnline, nConnections, themeColor, playerName, gameSettings, opponentName, opponentTime, playerTime, timeOfServerTimes } from "../stores/global.js";
     import { TextInput, NumberInput, Button, TileGroup, RadioTile  } from "carbon-components-svelte";
     import "carbon-components-svelte/css/white.css";
     import Chessground from "../components/chessground.svelte";
     import wsAPI from "../logic/ws.js";
     let API;
     let sendMessage = {};
-    let moveHook;
-    let onMove;
+    let updateBoard;
+    let syncMoves;
     let games = [];
     let reset;
     let colorPickerElement;
@@ -36,19 +36,23 @@
         newGameSettings.wIncrement = 0;
         newGameSettings.bIncrement = 0;
     }
-    
-    function decrementClock(isPlayer, color) {
-        setTimeout(() => {
-            if($gameSettings.turnColor === color && $gameSettings.winner === null && $gameSettings.isPlaying) {
-                if(isPlayer) {
-                    $playerTime = ($playerTime - 100 <= 0) ? 0 : ($playerTime - 100);
-                } else {
-                    $opponentTime = ($opponentTime - 100 <= 0) ? 0 : ($opponentTime - 100);
-                }
-                decrementClock(isPlayer, color);
-            }
-        }, 100)
+    let clockIntervalID = null;
+    let clockPlayerTime = null;
+    let clockOpponentTime = null;
+    $: {
+        clockPlayerTime = $playerTime;
+        clockOpponentTime = $opponentTime;
     }
+    let removingGame = false;
+
+    function tickDownClocks() {
+        if($gameSettings.turnColor == $gameSettings.color) {
+            clockPlayerTime = Math.max($playerTime - (Date.now() - $timeOfServerTimes), 0);
+        } else {
+            clockOpponentTime = Math.max($opponentTime - (Date.now() - $timeOfServerTimes), 0);
+        }
+    }
+    
     function msToTime(s) {
         const origMs = s;
         const ms = s % 1000;
@@ -74,26 +78,30 @@
         }
     }
     function onMessage(data) {
-        // console.log(data)
         switch (data.status) {
             case "moved":
                 // Update clocks
                 $opponentTime = data.data.times[$gameSettings.color === "b" ? 0 : 1];
                 $playerTime = data.data.times[$gameSettings.color === "b" ? 1 : 0];
+                $timeOfServerTimes = Date.now();
                 // If other persons move then update the board
                 if($gameSettings.turnColor !== $gameSettings.color) {
+                    // Server data response for opponent move 
+
                     cg.move(data.data.move[0], data.data.move[1]);
                     // For some reason the move hook doesn't get fired on programmatic moves
-                    moveHook(data.data.move[0], data.data.move[1]);
+                    updateBoard(data.data.move[0], data.data.move[1]);
                     // update color
                     $gameSettings.turnColor = $gameSettings.turnColor === "b" ? "w" : "b"; 
-                    // Start new decrement
-                    decrementClock(true, $gameSettings.turnColor)
+                    
+                    // Play a premove, which does fire the move hook automatically
+                    const wasPremovePlayed = cg.playPremove();
+
                 } else {
+                    // Server data response for player move
+                    
                     // update color
                     $gameSettings.turnColor = $gameSettings.turnColor === "b" ? "w" : "b"; 
-                    // Start new decrement
-                    decrementClock(false, $gameSettings.turnColor)
                 }
                 break;
             case "games":
@@ -116,11 +124,9 @@
                 $opponentTime = data.data.times[data.data.index === 0 ? 1 : 0];
                 $playerTime = data.data.times[data.data.index];
                 $isGameCreated = true;
-                if($gameSettings.color === "b") {
-                    decrementClock(true, "b")
-                } else {
-                    decrementClock(false, "b")
-                }
+                $timeOfServerTimes = Date.now();
+                // Clock update repeater
+                clockIntervalID = setInterval(tickDownClocks, 100);
                 reset();
                 break;
             // Refresh the list
@@ -188,7 +194,7 @@
             });
         }
 
-        onMove = (move) => {
+        syncMoves = (move) => {
             // send moves if playing, game isn't over, and it's player's move
             if($gameSettings.isPlaying && $gameSettings.winner === null && $gameSettings.color === $gameSettings.turnColor) {
                 API.send("move", {
@@ -203,9 +209,14 @@
 
         gameOver = (winner) => {
             API.send("games");
-            $gameSettings.winner = colorMap[winner];
+            if(!removingGame) {
+                $gameSettings.winner = colorMap[winner];
+                cg.stop()
+                // End clock updater
+                clearInterval(clockIntervalID);
+            }
+            removingGame = false;
             $isGameCreated = false;
-            cg.stop()
         }
     })
 
@@ -233,7 +244,7 @@
                 <div class="side-section" style="margin: 20px 0">
                     <span>CREATE GAME</span>
                     {#if $isGameCreated}
-                        <Button on:click={() => sendMessage.endGame(false)} kind="secondary" style="width: 100%; max-width: none; font-weight: 600; margin-top: 10px" size="field">Remove</Button>
+                        <Button on:click={() => {removingGame = true; sendMessage.endGame(false)}} kind="secondary" style="width: 100%; max-width: none; font-weight: 600; margin-top: 10px" size="field">Remove</Button>
                     {:else}
                         <div class="number-input">
                             <TileGroup bind:selected={tabColorIndex} id="tile-group" style="position: relative; min-height: 3rem; margin-top: 6px;">
@@ -292,12 +303,12 @@
                 <p>
                     Loading...
                 </p>
-                <Chessground bind:reset bind:cg bind:fen bind:initialFen bind:onMove bind:moveHook bind:gameOver {colorMap}/>
+                <Chessground bind:reset bind:cg bind:fen bind:initialFen bind:syncMoves bind:updateBoard bind:gameOver {colorMap}/>
             </div>
             {#if !$gameSettings.isPlaying}
                 <div style="display: flex; justify-content: space-between;">
                     <span style="font-weight: 600; font-size: 16px;">ANALYSIS BOARD{$gameSettings.winner !== null ? ` • GAME OVER ${$gameSettings.winner === false ? "DRAW" : `${$gameSettings.winner.toUpperCase()} WINS`}` : ""}</span>
-                    <span style="font-size: 16px; cursor: pointer" on:click={() => reset(true)}>RESET</span>
+                    <span style="font-size: 16px; cursor: pointer" on:click={() => {reset(false); $gameSettings.winner = null}}>RESET</span>
                 </div>
             {/if}
             {#if $gameSettings.isPlaying && $gameSettings.winner !== null}
@@ -343,13 +354,13 @@
                 <!-- Clocks -->
                 <div class="clock-container">
                     <div>
-                        <div class="clock" style="margin-bottom: 10px">{msToTime($opponentTime)}</div>
+                        <div class="clock" style="margin-bottom: 10px">{msToTime(clockOpponentTime)}</div>
                         <span class="player-name" >{$opponentName}</span>
                     </div>
                     <div class="reverse-clock-on-mobile" style="position: relative">
                         <span class="player-name">{$playerName}</span>
-                        <Button on:click={() => sendMessage.endGame(false)} kind="ghost" size="sm" class="resign-button" >Resign</Button>
-                        <div class="clock clock-self">{msToTime($playerTime)}</div>
+                        <Button disabled={!$isGameCreated} on:click={() => sendMessage.endGame(false)} kind="ghost" size="sm" class="resign-button" >Resign</Button>
+                        <div class="clock clock-self">{msToTime(clockPlayerTime)}</div>
                     </div>
                 </div>
             {/if}

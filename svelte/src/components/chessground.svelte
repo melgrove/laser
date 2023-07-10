@@ -5,8 +5,8 @@ import { getLegalMoves, getSquaresBetween } from "../logic/laser.js";
 import { isGameCreated, gameSettings, themeColor, defaultBrushes } from "../stores/global.js";
 export let reset;
 export let cg = {set: () => {}, move: () => {}};
-export let onMove = () => {};
-export let moveHook = () => {};
+export let syncMoves = () => {};
+export let updateBoard = () => {};
 export let initialFen = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1";
 export let gameOver;
 export let colorMap;
@@ -31,20 +31,15 @@ const initialConfig = {
     premovable: {
         enabled: false,
         showDests: true,
-        dests: ["h4"],
+        customDests: legalPremoves,
     },
-    events: {
-        select: (key) => cg.state.premovable.dests = ["h4"]
-    }
 };
 let chessgroundElement;
 
 onMount(() => {
-    moveHook = (orig, dest) => {
+    updateBoard = (orig, dest) => {
         // On move hook for API
-        onMove([orig, dest]);
-        // DEBUG chessground state
-        // console.log(cg.state)
+        syncMoves([orig, dest]);
         // Move laser back if it has shot
         if(cg.state.pieces.get(dest).role === "queen" && orig[0] !== dest[0] && orig[1] !== dest[1]) {
             cg.set({animation: {enabled: false}})
@@ -113,13 +108,13 @@ onMount(() => {
                 dests: legalMoves,
                 showDests: true,
                 events: {
-                    after: moveHook,
+                    after: updateBoard,
                 },
             },
             premovable: {
                 enabled: true,
                 showDests: true,
-                dests: ["h4"],
+                customDests: legalPremoves,
             },
             turnColor: colorMap[$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]]
         });
@@ -140,10 +135,12 @@ onMount(() => {
         // Prevent mutation
         const currentConfig = Object.assign({}, initialConfig);
         currentConfig.movable = Object.assign({}, initialConfig.movable);
+        currentConfig.premovable = Object.assign({}, initialConfig.premovable);
         // Update color
         let chessgroundColor = colorMap[$gameSettings.color];
         currentConfig.orientation = chessgroundColor;
         currentConfig.movable.color = $gameSettings.isPlaying ? chessgroundColor : "both";
+        currentConfig.premovable.enabled = true;
 
         // New chessground instance
         cg = Chessground(chessgroundElement, currentConfig);
@@ -151,7 +148,7 @@ onMount(() => {
         cg.set({
             movable: {
                 events: {
-                    after: moveHook
+                    after: updateBoard
                 }
             },
             // Add current color as brush

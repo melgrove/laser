@@ -36,3 +36,5 @@ export const defaultBrushes = {
         lineWidth: 15,
     },
 };
+
+export const timeOfServerTimes = writable(null);
