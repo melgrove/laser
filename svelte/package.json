@@ -17,6 +17,6 @@
 	"type": "module",
 	"dependencies": {
 		"chess.js": "^1.0.0-beta.6",
-		"chessground": "git+https://github.com/melgrove/chessground-1.git"
+		"chessground": "git+https://github.com/melgrove/chessground.git"
 	}
 }
