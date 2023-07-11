@@ -309,7 +309,7 @@
                 <p>
                     Loading...
                 </p>
-                <Chessground bind:reset bind:cg bind:fen bind:initialFen bind:syncMoves bind:updateBoard bind:gameOver {colorMap}/>
+                <Chessground bind:reset bind:cg bind:fen bind:initialFen bind:syncMoves bind:updateBoard bind:gameOver {colorMap} {sendMessage}/>
             </div>
             {#if !$gameSettings.isPlaying}
                 <div style="display: flex; justify-content: space-between;">

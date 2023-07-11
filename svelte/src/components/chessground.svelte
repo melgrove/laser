@@ -10,6 +10,7 @@ export let updateBoard = () => {};
 export let initialFen = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1";
 export let gameOver;
 export let colorMap;
+export let sendMessage;
 
 let initialFenPremove = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 w - - 0 1";
 let chessgroundColor = colorMap[$gameSettings.color];
@@ -66,15 +67,16 @@ onMount(() => {
             }
         });
         if(kings.size === 0) {
-            gameOver("d");
+            // Broadcast draw
+            sendMessage.endGame(true);
             return;
         }
         if(!kings.has("white")) {
-            gameOver("b");
+            $gameSettings.color === "b" ? gameOver("b") : sendMessage.endGame(false);
             return;
         }
         if(!kings.has("black")) {
-            gameOver("w");
+            $gameSettings.color === "w" ? gameOver("w") : sendMessage.endGame(false);
             return;
         }
         // Pawn reached other side
@@ -83,14 +85,14 @@ onMount(() => {
         for(let square of whiteWinSquares) {
             const val = cg.state.pieces.get(square);
             if(val?.role === "pawn" && val?.color === "white") {
-                gameOver("w");
+                $gameSettings.color === "w" ? gameOver("w") : sendMessage.endGame(false);
                 return;
             }
         }
         for(let square of blackWinSquares) {
             const val = cg.state.pieces.get(square);
             if(val?.role === "pawn" && val?.color === "black") {
-                gameOver("b");
+                $gameSettings.color === "b" ? gameOver("b") : sendMessage.endGame(false);
                 return;
             }
         }
