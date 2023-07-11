@@ -1,6 +1,6 @@
 # Laser • [playlaser.xyz](https://playlaser.xyz)
 
-![laser2](https://github.com/melgrove/laser/assets/38347766/701a307c-bdc5-40fc-8870-7f36e6e00bd6)
+![laser2](https://github.com/melgrove/laser/assets/38347766/259f1cbb-61ac-4524-a97e-37ec0c0ee519)
 
 Laser is a turn based game which is played on a chess board, and hosted online at [playlaser.xyz](https://playlaser.xyz). Some of the pieces move the same way as their chess counterparts, while some are completely different. The game is named after the *laser* piece, which can shoot diagonally through every piece on the board except for the *wall*, which blocks it. The goal when creating Laser was to make a balanced game that has unexpected emergent strategy. 
 ## Rules
