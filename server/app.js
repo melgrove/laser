@@ -259,16 +259,21 @@ function makeMessageHandler(ws) {
 
 function makeCloseHandler(ws) {
     return () => {
-        // Remove created game if exists and not started
-        let connectedGame = Object.entries(games).filter(game => game[1].wsIDs.includes(ws.id))[0];
-        if(connectedGame && connectedGame[1]?.wsIDs.includes(null)) {
-            delete games[connectedGame[0]];
+        try {
+            // Remove created game if exists and not started
+            let connectedGame = Object.entries(games).filter(game => game[1].wsIDs.includes(ws.id))[0];
+            if(connectedGame && connectedGame[1]?.wsIDs.includes(null)) {
+                delete games[connectedGame[0]];
+            }
+            // Send new game data to all clients (disconnected game has been removed)
+            wss.clients.forEach(client => client.send(makeMessage("games", {
+                games: getGames(games),
+                nConnections: getNConnections(),
+            })));
+        } catch(err) {
+            console.error(err);
+            // pass on and don't crash the server!
         }
-        // Send new game data to all clients (disconnected game has been removed)
-        wss.clients.forEach(client => client.send(makeMessage("games", {
-            games: getGames(games),
-            nConnections: getNConnections(),
-        })));
     }
 }
 
