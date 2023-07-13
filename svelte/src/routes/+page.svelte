@@ -5,6 +5,7 @@
     import "carbon-components-svelte/css/white.css";
     import Chessground from "../components/chessground.svelte";
     import Rules from "../components/rules.svelte";
+    import Footer from "../components/footer.svelte";
     import wsAPI from "../logic/ws.js";
     let API;
     let sendMessage = {};
@@ -349,11 +350,7 @@
         </div>
     </div>
     
-    <!-- Footer -->
-    <footer style={"background-color: " + $themeColor}>
-        <span>server {$isOnline ? `online ✓ ${$nConnections} connection${$nConnections === 1 ? "" : "s"}` : "not connected ✖"}</span>
-        <span>laser rules: oliver & tate, website: oliver</span>
-    </footer>
+    <Footer />
 </div>
 
 
@@ -452,21 +449,6 @@
     .side-section span {
         font-weight: 600;
         font-size: 16px;
-    }
-
-    footer {
-        min-height: 20px;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        position: absolute;
-        bottom: 0;
-        width: 100%;
-    }
-
-    footer span {
-        font-size: 14px;
-        color: white;
     }
 
     .controls {
