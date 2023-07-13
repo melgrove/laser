@@ -312,6 +312,9 @@ function isNameInvalid(name) {
     if(typeof name !== "string" || name.length < 1) {
         return "noName";
     }
+    if(name.length > 60) {
+        return "nameTooLong";
+    }
     // Name cannot match a name in existing games that have not started
     if(Object.values(games)
     .filter(g => g.name.some(n => n === null))

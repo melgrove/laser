@@ -153,6 +153,10 @@
                 invalidTextInput = true;
                 invalidTextMessage = "Choose a name to play as";
                 break;
+            case "nameTooLong":
+                invalidTextInput = true;
+                invalidTextMessage = "Name too long, maximum 60 characters";
+                break;
             case "notFound":
                 sendMessage.getGames();
                 break;
@@ -288,7 +292,7 @@
                                     <span style="font-style: italic">&nbsp;vs&nbsp;</span>
                                     <!-- Get local if own game to prevent flash -->
                                     <span class={game.name.indexOf(null) === 0 ? "black-dot" : "white-dot"}></span>
-                                    <span style="font-weight: 500; text-decoration: underline">{game.name.filter(n => n !== null)[0] === $playerName && $isGameCreated ? $playerName : game.name.filter(e => e !== null)[0]}</span>
+                                    <span style="font-weight: 500; text-decoration: underline; word-wrap: anywhere">{game.name.filter(n => n !== null)[0] === $playerName && $isGameCreated ? $playerName : game.name.filter(e => e !== null)[0]}</span>
                                     <span>{game.times[game.name.indexOf(null) === 0 ? 1 : 0] / 60000} mins{game.increments[game.name.indexOf(null) === 0 ? 1 : 0] !== 0 ? " + " + game.increments[game.name.indexOf(null) === 0 ? 1 : 0] / 1000 + "": ""}</span>
                                 </div>
                                 {#if game.name.filter(n => n !== null)[0] !== $playerName || !$isGameCreated}
@@ -390,6 +394,9 @@
     .player-name {
         text-decoration: underline;
         font-weight: 600;
+        max-width: 10vw;
+        word-wrap: break-word;
+        display: inline-block;
     }
 
     .page-container {
@@ -429,12 +436,6 @@
     .game-tile-wrapper {
         display: flex;
         margin: 5px 0;
-    }
-
-    /* Hack to get the time inputs to be full width */
-    :global(.bx--radio-button-group) {
-        border: none;
-        width: 100%;
     }
 
     .side {
@@ -606,9 +607,18 @@
             width: 150px;
         }
 
+        .clock {
+            text-align: right;
+        }
+
         .clock-self {
             margin-top: 0px;
             margin-bottom: 10px;
+            text-align: left;
+        }
+
+        .player-name {
+            max-width: 25vw;
         }
     }
 
