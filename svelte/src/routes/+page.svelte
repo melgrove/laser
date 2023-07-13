@@ -1,6 +1,6 @@
 <script>
     import { onMount } from "svelte";
-    import { defaultBrushes, isGameCreated, isOnline, nConnections, themeColor, playerName, gameSettings, opponentName, opponentTime, playerTime, timeOfServerTimes } from "../stores/global.js";
+    import { defaultBrushes, isGameCreated, isOnline, nConnections, themeColor, playerName, gameSettings, opponentName, opponentTime, playerTime, timeOfServerTimes, initialFen } from "../stores/global.js";
     import { TextInput, NumberInput, Button, TileGroup, RadioTile  } from "carbon-components-svelte";
     import "carbon-components-svelte/css/white.css";
     import Chessground from "../components/chessground.svelte";
@@ -10,13 +10,10 @@
     let API;
     let sendMessage = {};
     let updateBoard;
-    let syncMoves;
     let games = [];
     let reset;
     let colorPickerElement;
     let cg;
-    let fen;
-    let initialFen;
     let newGameSettings = {
         color: "b",
         wTime: 3,
@@ -30,7 +27,7 @@
     }
     let invalidTextInput = false;
     let invalidTextMessage = "";
-    let gameOver = () => {}
+    let gameOverStopBoard = () => {}
     let colorMap = {"w": "white", "b": "black", "d": false}
     let addIncrement = false;
     $: {
@@ -96,15 +93,25 @@
                     updateBoard(data.data.move[0], data.data.move[1]);
                     // update color
                     $gameSettings.turnColor = $gameSettings.turnColor === "b" ? "w" : "b"; 
-                    
-                    // Play a premove, which does fire the move hook automatically
-                    const wasPremovePlayed = cg.playPremove();
 
+                    // check for a winner
+                    if(data.data.winner !== null) {
+                        gameOverStopBoard(data.data.winner);
+                    } else {
+                        // Play a premove, which does fire the move hook automatically
+                        cg.playPremove();
+                    }
+                    
                 } else {
                     // Server data response for player move
                     
                     // update color
                     $gameSettings.turnColor = $gameSettings.turnColor === "b" ? "w" : "b"; 
+
+                    // check for a winner
+                    if(data.data.winner !== null) {
+                        gameOverStopBoard(data.data.winner);
+                    }
                 }
                 break;
             case "games":
@@ -143,7 +150,7 @@
             case "gameOver":
                 $opponentTime = data.data.times[$gameSettings.color === "b" ? 0 : 1];
                 $playerTime = data.data.times[$gameSettings.color === "b" ? 1 : 0];
-                gameOver(data.data.winner);
+                gameOverStopBoard(data.data.winner);
                 break;
             case "nameTaken":
                 invalidTextInput = true;
@@ -168,7 +175,7 @@
 
         sendMessage.newGame = () => {
             API.send("create", {
-                fen: initialFen,
+                fen: $initialFen,
                 turn: "b",
                 times: [newGameSettings.wTime * 60000, newGameSettings.bTime * 60000],
                 increments: [newGameSettings.wIncrement * 1000, newGameSettings.bIncrement * 1000],
@@ -180,7 +187,7 @@
         sendMessage.joinGame = (gameID) => {
             // First remove self created game if exists
             if($isGameCreated) {
-                sendMessage.endGame(false);
+                sendMessage.endGame();
             }
             API.send("join", {
                 id: gameID,
@@ -192,29 +199,28 @@
             API.send("games");
         }
 
-        sendMessage.endGame = (isDraw) => {
+        sendMessage.endGame = () => {
             API.send("end", {
                 name: $playerName,
                 id: $gameSettings.id,
                 key: $gameSettings.key,
-                isDraw,
             });
         }
 
-        syncMoves = (move) => {
+        sendMessage.syncMoves = (move) => {
             // send moves if playing, game isn't over, and it's player's move
             if($gameSettings.isPlaying && $gameSettings.winner === null && $gameSettings.color === $gameSettings.turnColor) {
                 API.send("move", {
                     key: $gameSettings.key,
                     id: $gameSettings.id,
                     name: $playerName,
-                    fen,
+                    fen: $gameSettings.fen,
                     move 
                 });
             }   
         }
 
-        gameOver = (winner) => {
+        gameOverStopBoard = (winner) => {
             API.send("games");
             if(!removingGame) {
                 $gameSettings.winner = colorMap[winner];
@@ -223,7 +229,9 @@
                 clearInterval(clockIntervalID);
             }
             removingGame = false;
-            $isGameCreated = false;
+            if($gameSettings.isPlaying) {
+                $isGameCreated = false;
+            }
         }
     })
 
@@ -251,7 +259,7 @@
                 <div class="side-section" style="margin: 20px 0">
                     <span>CREATE GAME</span>
                     {#if $isGameCreated}
-                        <Button on:click={() => {removingGame = true; sendMessage.endGame(false)}} kind="secondary" style="width: 100%; max-width: none; font-weight: 600; margin-top: 10px" size="field">Remove</Button>
+                        <Button on:click={() => {removingGame = true; sendMessage.endGame()}} kind="secondary" style="width: 100%; max-width: none; font-weight: 600; margin-top: 10px" size="field">Remove</Button>
                     {:else}
                         <div class="number-input">
                             <TileGroup bind:selected={tabColorIndex} id="tile-group" style="position: relative; min-height: 3rem; margin-top: 6px;">
@@ -314,7 +322,7 @@
                 <p>
                     Loading...
                 </p>
-                <Chessground bind:reset bind:cg bind:fen bind:initialFen bind:syncMoves bind:updateBoard bind:gameOver {colorMap} {sendMessage}/>
+                <Chessground bind:reset bind:cg bind:updateBoard bind:gameOverStopBoard {colorMap} {sendMessage}/>
             </div>
             {#if !$gameSettings.isPlaying}
                 <div style="display: flex; justify-content: space-between;">
@@ -346,7 +354,7 @@
                     <div class="reverse-clock-on-mobile" style="position: relative">
                         <span class="player-name">{$playerName}</span>
                         <Button disabled={!$isGameCreated} on:click={() => showRulesDuringGame = !showRulesDuringGame} kind="ghost" size="sm" class="resign-button rules-button" >{showRulesDuringGame ? "Hide" : "Show"} rules</Button>
-                        <Button disabled={!$isGameCreated} on:click={() => sendMessage.endGame(false)} kind="ghost" size="sm" class="resign-button" >Resign</Button>
+                        <Button disabled={!$isGameCreated} on:click={() => sendMessage.endGame()} kind="ghost" size="sm" class="resign-button" >Resign</Button>
                         <div class="clock clock-self">{msToTime(clockPlayerTime)}</div>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 const { WebSocketServer } = require('ws');
 const { nanoid }  = require("nanoid");
+const { Chess } = require("chess.js");
 require('dotenv').config();
 const colors = "wb";
 
@@ -14,7 +15,7 @@ val: {
     turn: "w" | "b",
     times: [number, number], // white ms, black ms
     increments: [number, number], // white ms, black ms
-    lastMove: string | null,
+    allFens: Object, // key: fen string, val: number of occurences
     lastMoveTime: string | null,
     name: [string | null, string | null], // white, black
     key: [string | null, string | null], // white, black
@@ -72,7 +73,7 @@ function makeMessageHandler(ws) {
                             turn: "b",
                             times: body.data.times,
                             increments: body.data.increments ?? [0, 0],
-                            lastMove: null,
+                            allFens: { [body.data.fen.split(" ")[0]]: 1 },
                             lastMoveTime: null,
                             name: [null, null],
                             key: [null, null],
@@ -124,7 +125,7 @@ function makeMessageHandler(ws) {
                             game.name[colorIndex] = body.data.name;
                             game.key[colorIndex] = nanoid();
                             game.wsIDs[colorIndex] = ws.id;
-                            
+
                             // Send to challenger
                             ws.send(makeMessage("joined", {
                                 fen: game.fen,
@@ -173,6 +174,7 @@ function makeMessageHandler(ws) {
                             const game = games[id];
                             const opponentColorIndex = colorIndex === 0 ? 1 : 0;
                             const opponentWsConnection = getOpponentConn(game, opponentColorIndex);
+                            let winner = null;
                             // make sure it's their turn 
                             if(game.turn === colors[colorIndex]) {
                                 // Calculate the time spent on the move and update the time
@@ -184,18 +186,38 @@ function makeMessageHandler(ws) {
                                 
                                 // Now the move will be made
                                 game.fen = fen;
-                                game.turn =  (game.turn === "w" ? "b" : "w");
-                                game.lastMove = move;
+                                game.turn = game.turn === "w" ? "b" : "w";
+                                const formattedFen = fen.split(" ")[0];
+                                if(formattedFen in game.allFens) {
+                                    game.allFens[formattedFen]++;
+                                } else {
+                                    game.allFens[formattedFen] = 1;
+                                }
+
+                                // First check for result
+                                const result = getResult(fen, game.allFens);
+                                if(result !== null) {
+                                    winner = result;
+                                    // Delete game
+                                    if(serverClockRejections[id]) {
+                                        serverClockRejections[id]();
+                                    }
+                                    delete serverClock[id];
+                                    delete serverClockRejections[id];
+                                    delete games[id];
+                                }
                                 
                                 // Send to mover
                                 ws.send(makeMessage("moved", {
                                     times: game.times,
-                                    move
+                                    move,
+                                    winner,
                                 }));
                                 // Send to other player
                                 opponentWsConnection.send(makeMessage("moved", {
                                     times: game.times,
-                                    move
+                                    move,
+                                    winner,
                                 }));
                             } else {
                                 // Not the player's turn
@@ -219,14 +241,14 @@ function makeMessageHandler(ws) {
                 case "end":
                     // Block scope
                     {
-                        let { key, id, name, isDraw = false } = body.data;
+                        let { key, id, name } = body.data;
                         // Game must exist and the secret key must be correct
                         if(games[id] && games[id]?.key[games[id]?.name.indexOf(name)] === key) {
                             // validated
                             const game = games[id];
                             const colorIndex = games[id]?.name.indexOf(name);
-                            // Implicit resign, draw if specified
-                            const winner = isDraw ? "d" : (colorIndex === 0 ? "b" : "w")
+                            // Implicit resign
+                            const winner = colorIndex === 0 ? "b" : "w"
                             // Send result
                             const opponentConn = getOpponentConn(game, colorIndex === 0 ? 1 : 0); // Undefined if ended game has not started
                             broadcastResult(winner, game.times, ws, opponentConn);
@@ -363,4 +385,63 @@ function startInternalClock(id, winnerOnClockExpiration, playerConn, opponentCon
     })
     // Catch old clock rejection
     .catch(() => {}); // Do nothing
+}
+
+// Same function as in client side laser.js 
+function getResult(fen, allFens) {
+    const position = new Chess(fen, allowInvalidFen = true);
+    const squareLookup = Object.fromEntries(position.board()
+        .reduce((acc, el) => [...acc, ...el], [])
+        .filter(e => e !== null)
+        .map(e => [e.square, e]));
+
+    // Check for win condition
+    // King taken draw
+    let kings = new Set();
+    for(let square in squareLookup) {
+        if(squareLookup[square].type === "k") {
+            kings.add(squareLookup[square].color);
+        }
+    }
+    if(kings.size === 0) {
+        return "d";
+    }
+    if(!kings.has("w")) {
+        return "b";
+    }
+    if(!kings.has("b")) {
+        return "w";
+    }
+    
+    // Pawn reached other side
+    const whiteWinSquares = ["h8", "h7", "h6", "h5", "g8", "f8", "e8"];
+    const blackWinSquares = ["a1", "a2", "a3", "a4", "b1", "c1", "d1"];
+    for(let square of whiteWinSquares) {
+        const piece = squareLookup[square];
+        if(piece?.type === "p" && piece?.color === "w") {
+            return "w";
+        }
+    }
+    for(let square of blackWinSquares) {
+        const piece = squareLookup[square];
+        if(piece?.type === "p" && piece?.color === "b") {
+            return "b";
+        }
+    }
+
+    // Insufficient material check
+    if(Object.keys(squareLookup).length <= 3) {
+        // We know that there are two kings, so if a knight exists it's over
+        if(Object.values(squareLookup).map(piece => piece.type).includes("n")) {
+            return "d";
+        }
+    }
+
+    // 3 fold check
+    console.log(allFens);
+    if(Object.values(allFens).some(times => times === 3)) {
+        return "d";
+    }
+    
+    return null;
 }

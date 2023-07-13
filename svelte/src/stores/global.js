@@ -6,6 +6,9 @@ export const themeColor = writable("#0000FF");
 export const playerName = writable("");
 export const nConnections = writable(null);
 
+export const initialFen = readable("7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1");
+export const initialFenPremove = readable("7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 w - - 0 1");
+
 export const gameSettings = writable({
     isPlaying: false,
     color: "b",

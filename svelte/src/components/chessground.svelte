@@ -1,25 +1,21 @@
 <script>
 import { onMount } from "svelte";
 import { Chessground } from 'chessground';
-import { getLegalMoves, getSquaresBetween } from "../logic/laser.js";
-import { isGameCreated, gameSettings, themeColor, defaultBrushes } from "../stores/global.js";
+import { getLegalMoves, getSquaresBetween, getResult } from "../logic/laser.js";
+import { isGameCreated, gameSettings, themeColor, defaultBrushes, initialFen, initialFenPremove } from "../stores/global.js";
 export let reset;
 export let cg = {set: () => {}, move: () => {}};
-export let syncMoves = () => {};
 export let updateBoard = () => {};
-export let initialFen = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 b - - 0 1";
-export let gameOver;
+export let gameOverStopBoard;
 export let colorMap;
 export let sendMessage;
 
-let initialFenPremove = "7q/4pnk1/4prn1/5pp1/1PP5/1NRP4/1KNP4/Q7 w - - 0 1";
 let chessgroundColor = colorMap[$gameSettings.color];
-let fen = initialFen;
-let legalMoves = getLegalMoves(fen);
-let legalPremoves = getLegalMoves(initialFenPremove);
+let legalMoves = getLegalMoves($initialFen);
+let legalPremoves = getLegalMoves($initialFenPremove);
 
 const initialConfig = {
-    fen,
+    fen: $initialFen,
     turnColor: "black",
     orientation: chessgroundColor,
     coordinates: false,
@@ -39,8 +35,15 @@ let chessgroundElement;
 
 onMount(() => {
     updateBoard = (orig, dest) => {
+        // Update fen
+        const fen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]} - - 0 1`;
+        console.log(fen)
+        const premoveFen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor) : cg.state.turnColor[0]} - - 0 1`;
+        $gameSettings.fen = fen
+
+
         // On move hook for API
-        syncMoves([orig, dest]);
+        sendMessage.syncMoves([orig, dest]);
         // Move laser back if it has shot
         if(cg.state.pieces.get(dest).role === "queen" && orig[0] !== dest[0] && orig[1] !== dest[1]) {
             cg.set({animation: {enabled: false}})
@@ -58,50 +61,15 @@ onMount(() => {
             }])
         }
 
-        // Check for win condition
-        // King taken
-        let kings = new Set();
-        cg.state.pieces.forEach(val => {
-            if(val.role === "king") {
-                kings.add(val.color);
-            }
-        });
-        if(kings.size === 0) {
-            // Broadcast draw
-            sendMessage.endGame(true);
-            return;
-        }
-        if(!kings.has("white")) {
-            $gameSettings.color === "b" ? gameOver("b") : sendMessage.endGame(false);
-            return;
-        }
-        if(!kings.has("black")) {
-            $gameSettings.color === "w" ? gameOver("w") : sendMessage.endGame(false);
-            return;
-        }
-        // Pawn reached other side
-        const whiteWinSquares = ["h8", "h7", "h6", "h5", "g8", "f8", "e8"];
-        const blackWinSquares = ["a1", "a2", "a3", "a4", "b1", "c1", "d1"];
-        for(let square of whiteWinSquares) {
-            const val = cg.state.pieces.get(square);
-            if(val?.role === "pawn" && val?.color === "white") {
-                $gameSettings.color === "w" ? gameOver("w") : sendMessage.endGame(false);
-                return;
+        if(!$gameSettings.isPlaying) {
+            // Stop the board and reflect the result, but only during analysis (server side otherwise)
+            const result = getResult(fen);
+            if(result !== null) {
+                gameOverStopBoard(result);
             }
         }
-        for(let square of blackWinSquares) {
-            const val = cg.state.pieces.get(square);
-            if(val?.role === "pawn" && val?.color === "black") {
-                $gameSettings.color === "b" ? gameOver("b") : sendMessage.endGame(false);
-                return;
-            }
-        }
-
 
         // Calculate new legal moves
-        const fen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]} - - 0 1`;
-        const premoveFen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor) : cg.state.turnColor[0]} - - 0 1`
-        $gameSettings.fen = fen
         const legalMoves = getLegalMoves(fen);
         const legalPremoves = getLegalMoves(premoveFen);
         cg.set({
@@ -109,9 +77,6 @@ onMount(() => {
                 free: false,
                 dests: legalMoves,
                 showDests: true,
-                events: {
-                    after: updateBoard,
-                },
             },
             premovable: {
                 enabled: true,
@@ -150,7 +115,7 @@ onMount(() => {
         cg.set({
             movable: {
                 events: {
-                    after: updateBoard
+                    after: updateBoard,
                 }
             },
             // Add current color as brush

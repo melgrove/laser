@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chess.js": "git+https://github.com/melgrove/chess.js.git",
     "dotenv": "^16.3.1",
     "nanoid": "^3.3.4",
     "nodemon": "^2.0.22",

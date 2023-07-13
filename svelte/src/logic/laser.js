@@ -28,7 +28,8 @@ function addToMap(map, key, val) {
 
 export function getLegalMoves(fen) {
     const dests = new Map();
-    const position = new Chess(fen);
+    // No invalid FENs because this is never called after the game is over
+    const position = new Chess(fen, allowInvalidFen = false);
     const squareLookup = Object.fromEntries(position.board()
         .reduce((acc, el) => [...acc, ...el], [])
         .filter(e => e !== null)
@@ -120,6 +121,61 @@ export function getLegalMoves(fen) {
         }
     }
     return dests;
+}
+
+export function getResult(fen) {
+    // Need to allow invalid fen for analysis board result
+    const position = new Chess(fen, allowInvalidFen = true);
+    const squareLookup = Object.fromEntries(position.board()
+        .reduce((acc, el) => [...acc, ...el], [])
+        .filter(e => e !== null)
+        .map(e => [e.square, e]));
+
+    // Check for win condition
+    // King taken draw
+    let kings = new Set();
+    for(let square in squareLookup) {
+        if(squareLookup[square].type === "k") {
+            kings.add(squareLookup[square].color);
+        }
+    }
+    if(kings.size === 0) {
+        return "d";
+    }
+    if(!kings.has("w")) {
+        return "b";
+    }
+    if(!kings.has("b")) {
+        return "w";
+    }
+    
+    // Pawn reached other side
+    const whiteWinSquares = ["h8", "h7", "h6", "h5", "g8", "f8", "e8"];
+    const blackWinSquares = ["a1", "a2", "a3", "a4", "b1", "c1", "d1"];
+    for(let square of whiteWinSquares) {
+        const piece = squareLookup[square];
+        if(piece?.type === "p" && val?.color === "w") {
+            return "w";
+        }
+    }
+    for(let square of blackWinSquares) {
+        const piece = squareLookup[square];
+        if(piece?.type === "p" && val?.color === "b") {
+            return "b";
+        }
+    }
+
+    // Insufficient material check
+    if(Object.keys(squareLookup).length <= 3) {
+        // We know that there are two kings, so if a knight exists it's over
+        if(Object.values(squareLookup).map(piece => piece.type).includes("n")) {
+            return "d";
+        }
+    }
+
+    // No 3 fold check for internal board
+
+    return null;
 }
 
 export function getSquaresBetween(orig, dest) {
