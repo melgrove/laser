@@ -79,12 +79,15 @@ function makeMessageHandler(ws) {
                             turn: "b",
                             times: body.data.times,
                             increments: body.data.increments ?? [0, 0],
-                            allFens: { [body.data.fen.split(" ")[0]]: 1 },
                             lastMoveTime: null,
                             name: [null, null],
                             key: [null, null],
                             wsIDs: [null, null]
                         };
+                        // Silently allow FEN not to be passed
+                        if(body.data.fen) {
+                            gameData.allFens = { [body.data.fen.split(" ")[0]]: 1 };
+                        }
                         const colorIndex = body.data.color === "w" ? 0 : 1;
                         gameData.name[colorIndex] = body.data.name;
                         gameData.key[colorIndex] = playerKey;
@@ -191,13 +194,16 @@ function makeMessageHandler(ws) {
                                 startInternalClock(id, game.turn, ws, opponentWsConnection) 
                                 
                                 // Now the move will be made
-                                game.fen = fen;
                                 game.turn = game.turn === "w" ? "b" : "w";
-                                const formattedFen = fen.split(" ")[0];
-                                if(formattedFen in game.allFens) {
-                                    game.allFens[formattedFen]++;
-                                } else {
-                                    game.allFens[formattedFen] = 1;
+                                // Silently allow FEN not to be passed
+                                if(fen) {
+                                    game.fen = fen;
+                                    const formattedFen = fen.split(" ")[0];
+                                    if(formattedFen in game.allFens) {
+                                        game.allFens[formattedFen]++;
+                                    } else {
+                                        game.allFens[formattedFen] = 1;
+                                    }
                                 }
 
                                 // First check for result
