@@ -26,7 +26,7 @@
 </div>
 <span style={`font-style: italic; color: ${$themeColor}`}>Gameplay</span><br>
 <div class="winning-rules" style="margin-top: 6px">
-    No checks or checkmates, the game continues until one of the win conditions. The game is a draw if both kings are lasered at the same time. Black moves first.
+    No checks or checkmates, the game continues until one of the win conditions. The game is a draw if both kings are lasered at the same time, threefold repetition, or insufficient material. Black moves first.
 </div>
 
 <style>
