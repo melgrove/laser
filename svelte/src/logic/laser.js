@@ -28,8 +28,9 @@ function addToMap(map, key, val) {
 
 export function getLegalMoves(fen) {
     const dests = new Map();
-    // No invalid FENs because this is never called after the game is over
-    const position = new Chess(fen, allowInvalidFen = false);
+    // Invalid FENs allowed because this is fired right before end of game
+    // and on premoves
+    const position = new Chess(fen, true);
     const squareLookup = Object.fromEntries(position.board()
         .reduce((acc, el) => [...acc, ...el], [])
         .filter(e => e !== null)
@@ -125,20 +126,20 @@ export function getLegalMoves(fen) {
 
 export function getResult(fen) {
     // Need to allow invalid fen for analysis board result
-    const position = new Chess(fen, allowInvalidFen = true);
+    const position = new Chess(fen, true);
     const squareLookup = Object.fromEntries(position.board()
         .reduce((acc, el) => [...acc, ...el], [])
         .filter(e => e !== null)
         .map(e => [e.square, e]));
 
     // Check for win condition
-    // King taken draw
     let kings = new Set();
     for(let square in squareLookup) {
         if(squareLookup[square].type === "k") {
             kings.add(squareLookup[square].color);
         }
     }
+    // both kings lasered at same time
     if(kings.size === 0) {
         return "d";
     }
@@ -166,9 +167,10 @@ export function getResult(fen) {
     }
 
     // Insufficient material check
-    if(Object.keys(squareLookup).length <= 3) {
+    const squareValues = Object.values(squareLookup);
+    if(squareValues.length <= 3) {
         // We know that there are two kings, so if a knight exists it's over
-        if(Object.values(squareLookup).map(piece => piece.type).includes("n")) {
+        if(squareValues.length === 2 || squareValues.map(piece => piece.type).includes("n")) {
             return "d";
         }
     }

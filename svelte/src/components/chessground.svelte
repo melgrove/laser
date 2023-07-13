@@ -35,15 +35,6 @@ let chessgroundElement;
 
 onMount(() => {
     updateBoard = (orig, dest) => {
-        // Update fen
-        const fen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]} - - 0 1`;
-        console.log(fen)
-        const premoveFen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor) : cg.state.turnColor[0]} - - 0 1`;
-        $gameSettings.fen = fen
-
-
-        // On move hook for API
-        sendMessage.syncMoves([orig, dest]);
         // Move laser back if it has shot
         if(cg.state.pieces.get(dest).role === "queen" && orig[0] !== dest[0] && orig[1] !== dest[1]) {
             cg.set({animation: {enabled: false}})
@@ -60,6 +51,15 @@ onMount(() => {
                 brush: $themeColor
             }])
         }
+
+        // Update fen
+        const fen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor === "b" ? "w" : "b") : cg.state.turnColor[0]} - - 0 1`;
+        const premoveFen = `${cg.getFen()} ${$gameSettings.isPlaying ? ($gameSettings.turnColor) : cg.state.turnColor[0]} - - 0 1`;
+        $gameSettings.fen = fen
+
+        // On move hook for API
+        // Only fires on player move
+        sendMessage.syncMoves([orig, dest]);
 
         if(!$gameSettings.isPlaying) {
             // Stop the board and reflect the result, but only during analysis (server side otherwise)

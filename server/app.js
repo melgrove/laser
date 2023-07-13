@@ -60,12 +60,18 @@ function makeMessageHandler(ws) {
                 case "create":
                     // Block scope
                     {
+                        // Time and name validations
                         const nameValidationError = isNameInvalid(body.data.name);
                         if(nameValidationError) {
                             ws.send(makeMessage(nameValidationError));
                             break;
                         }
-                        // Name validated
+                        const timeValidationError = isTimeInvalid(body.data.times);
+                        if(timeValidationError) {
+                            ws.send(makeMessage(timeValidationError));
+                            break;
+                        }
+                        // Validated
                         const gameID = nanoid();
                         const playerKey = nanoid();
                         const gameData = {
@@ -347,6 +353,16 @@ function isNameInvalid(name) {
     return false;
 }
 
+function isTimeInvalid(times) {
+    if(
+        !Array.isArray(times) || 
+        times.some(time => typeof time !== "number" || time <= 0)
+    ) {
+        return "timeTooShort";
+    }
+    return false;
+}
+
 function broadcastResult(winner, times, conn1, conn2) {
     // Send to winner
     conn1.send(makeMessage("gameOver", { winner, times }));
@@ -389,7 +405,7 @@ function startInternalClock(id, winnerOnClockExpiration, playerConn, opponentCon
 
 // Same function as in client side laser.js 
 function getResult(fen, allFens) {
-    const position = new Chess(fen, allowInvalidFen = true);
+    const position = new Chess(fen, true);
     const squareLookup = Object.fromEntries(position.board()
         .reduce((acc, el) => [...acc, ...el], [])
         .filter(e => e !== null)
@@ -430,15 +446,15 @@ function getResult(fen, allFens) {
     }
 
     // Insufficient material check
-    if(Object.keys(squareLookup).length <= 3) {
+    const squareValues = Object.values(squareLookup);
+    if(squareValues.length <= 3) {
         // We know that there are two kings, so if a knight exists it's over
-        if(Object.values(squareLookup).map(piece => piece.type).includes("n")) {
+        if(squareValues.length === 2 || squareValues.map(piece => piece.type).includes("n")) {
             return "d";
         }
     }
 
     // 3 fold check
-    console.log(allFens);
     if(Object.values(allFens).some(times => times === 3)) {
         return "d";
     }

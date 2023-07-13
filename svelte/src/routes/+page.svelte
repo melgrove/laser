@@ -91,13 +91,17 @@
                     cg.move(data.data.move[0], data.data.move[1]);
                     // For some reason the move hook doesn't get fired on programmatic moves
                     updateBoard(data.data.move[0], data.data.move[1]);
-                    // update color
-                    $gameSettings.turnColor = $gameSettings.turnColor === "b" ? "w" : "b"; 
 
                     // check for a winner
                     if(data.data.winner !== null) {
+                        // Game over
+                        
                         gameOverStopBoard(data.data.winner);
                     } else {
+                        // Game continues
+                        
+                        // update color
+                        $gameSettings.turnColor = $gameSettings.turnColor === "b" ? "w" : "b"; 
                         // Play a premove, which does fire the move hook automatically
                         cg.playPremove();
                     }
@@ -227,9 +231,12 @@
                 cg.stop()
                 // End clock updater
                 clearInterval(clockIntervalID);
-            }
-            removingGame = false;
-            if($gameSettings.isPlaying) {
+
+                if($gameSettings.isPlaying) {
+                    $isGameCreated = false;
+                }
+            } else {
+                removingGame = false;
                 $isGameCreated = false;
             }
         }
@@ -349,7 +356,7 @@
                 <div class="clock-container">
                     <div>
                         <div class="clock" style="margin-bottom: 10px">{msToTime(clockOpponentTime)}</div>
-                        <span class="player-name" >{$opponentName}</span>
+                        <span class="player-name opponent-name" >{$opponentName}</span>
                     </div>
                     <div class="reverse-clock-on-mobile" style="position: relative">
                         <span class="player-name">{$playerName}</span>
@@ -482,7 +489,7 @@
     .game-container {
         justify-content: space-around;
         display: flex;
-        padding-bottom: 70px;
+        padding-bottom: 80px;
     }
 
     header {
@@ -627,6 +634,10 @@
 
         .player-name {
             max-width: 25vw;
+        }
+
+        .opponent-name {
+            float: right;
         }
     }
 
