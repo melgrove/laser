@@ -6,7 +6,7 @@
 <div style="margin-top: 6px"></div>
 <span style={`font-style: italic; color: ${$themeColor}; margin-top: 20px;`}>Movement</span><br>
 <div class="rule-piece">
-    <div class="queen rule-piece-icon"></div><span style="font-weight: 600 !important">Laser&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Moves horizontal and vertical, shoots laser diagonally until the edge of the board or a Wall, destroying all pieces in its path. Cannot capture pieces.</span>
+    <div class="queen rule-piece-icon"></div><span style="font-weight: 600 !important">Laser&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Moves horizontally and vertically, can shoot a laser diagonally until the edge of the board or a Wall, destroying all pieces in its path. Cannot capture pieces.</span>
 </div>
 <div class="rule-piece">
     <div class="rook rule-piece-icon"></div><span style="font-weight: 600 !important">Wall&nbsp;&nbsp;</span><span style="font-size: 14px; margin-top: 16px">Same movement as a rook in chess, stops the Laser and cannot be destroyed by it</span>
