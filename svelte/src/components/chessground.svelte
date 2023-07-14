@@ -203,8 +203,8 @@ display: block;
 
 .cg-default-style :global(cg-container) {
 position: absolute;
-width: 100%;
-height: 100%;
+width: 100% !important;
+height: 100% !important;
 display: block;
 top: 0;
 }

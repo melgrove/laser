@@ -524,7 +524,7 @@
     }
 
     .chessground-wrapper {
-        padding: 5px 1px 1px 5px;
+        padding: 5px;
         background-color: black;
         position: relative;
     }
