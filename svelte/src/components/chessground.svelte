@@ -1,7 +1,7 @@
 <script>
 import { onMount } from "svelte";
 import { Chessground } from 'chessground';
-import { getLegalMoves, getSquaresBetween, getResult } from "../logic/laser.js";
+import { getLegalMoves, getSquaresBetween, getResult, whiteWinSquares, blackWinSquares } from "../logic/laser.js";
 import { isGameCreated, gameSettings, themeColor, defaultBrushes, initialFen, initialFenPremove } from "../stores/global.js";
 export let reset;
 export let cg = {set: () => {}, move: () => {}};
@@ -9,6 +9,8 @@ export let updateBoard = () => {};
 export let gameOverStopBoard;
 export let colorMap;
 export let sendMessage;
+export let highlightWinSquares;
+export let shouldHighlightWinSquares;
 
 let chessgroundColor = colorMap[$gameSettings.color];
 let legalMoves = getLegalMoves($initialFen);
@@ -65,6 +67,11 @@ onMount(() => {
             // Stop the board and reflect the result, but only during analysis (server side otherwise)
             const result = getResult(fen);
             if(result !== null) {
+                // highlight the win squares if a pawn win
+                if(shouldHighlightWinSquares(result, dest)) {
+                    const winSquaresToCheck = result === "b" ? blackWinSquares : whiteWinSquares;
+                    highlightWinSquares(winSquaresToCheck, dest);
+                }
                 gameOverStopBoard(result);
             }
         }
@@ -126,6 +133,10 @@ onMount(() => {
                     // New custom brush
                     [$themeColor]: {key: $themeColor, color: $themeColor, opacity: 1, lineWidth: 10}
                 }
+            },
+            // Remove highlights
+            highlight: {
+                custom: undefined,
             }
         });
     }
@@ -161,6 +172,14 @@ onMount(() => {
 .cg-wrap {
 width:100%;
 aspect-ratio:1;
+}
+
+:global(.win-squares) {
+    background-color: rgba(247, 55, 30, 0.25);
+} 
+
+:global(.win-square) {
+    background-color: rgba(247, 55, 30, 0.7) !important;
 }
 
 /*

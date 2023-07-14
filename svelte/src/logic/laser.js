@@ -6,6 +6,9 @@ const diagonalChangeCoords = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
 const horizontalVerticalChangeCoords = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const knightChangeCoords = [[-2, -1], [-2, 1], [-1, 2], [1, 2], [2, 1], [2, -1], [1, -2], [-1, -2]];
 
+export const whiteWinSquares = ["h8", "h7", "h6", "h5", "g8", "f8", "e8"];
+export const blackWinSquares = ["a1", "a2", "a3", "a4", "b1", "c1", "d1"];
+
 function squareTranslation(initial, XYChange) {
     const x = fileLookup[initial[0]];
     const y = parseInt(initial[1]);
@@ -151,17 +154,15 @@ export function getResult(fen) {
     }
     
     // Pawn reached other side
-    const whiteWinSquares = ["h8", "h7", "h6", "h5", "g8", "f8", "e8"];
-    const blackWinSquares = ["a1", "a2", "a3", "a4", "b1", "c1", "d1"];
     for(let square of whiteWinSquares) {
         const piece = squareLookup[square];
-        if(piece?.type === "p" && val?.color === "w") {
+        if(piece?.type === "p" && piece?.color === "w") {
             return "w";
         }
     }
     for(let square of blackWinSquares) {
         const piece = squareLookup[square];
-        if(piece?.type === "p" && val?.color === "b") {
+        if(piece?.type === "p" && piece?.color === "b") {
             return "b";
         }
     }

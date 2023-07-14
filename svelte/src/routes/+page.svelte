@@ -7,6 +7,7 @@
     import Rules from "../components/rules.svelte";
     import Footer from "../components/footer.svelte";
     import wsAPI from "../logic/ws.js";
+    import { blackWinSquares, whiteWinSquares } from "../logic/laser.js";
     let API;
     let sendMessage = {};
     let updateBoard;
@@ -77,6 +78,37 @@
             });
         }
     }
+    function highlightWinSquares(squares = null, winningSquare = null) {
+        if(squares !== null) {
+            const highlightSquares = new Map();
+            squares.forEach(square => {
+                highlightSquares.set(square, "win-squares");
+            })
+            if(winningSquare !== null) {
+                highlightSquares.set(winningSquare, "win-square");
+            }
+            cg.set({
+                highlight: {
+                    custom: highlightSquares,
+                },
+            });
+        } else {
+            // clear
+            cg.set({
+                highlight: {
+                    custom: undefined,
+                },
+            });
+        }
+    }
+    function shouldHighlightWinSquares(result, dest) {
+        const winSquaresToCheck = result === "b" ? blackWinSquares : whiteWinSquares;
+        return (
+            winSquaresToCheck.includes(dest) && 
+            cg?.state?.pieces?.get(dest)?.role === "pawn" &&
+            cg?.state?.pieces?.get(dest)?.color?.[0] === result
+        );
+    }
     function onMessage(data) {
         switch (data.status) {
             case "moved":
@@ -96,6 +128,12 @@
                     if(data.data.winner !== null) {
                         // Game over
                         
+                        // highlight the win squares if a pawn win
+                        if(shouldHighlightWinSquares(data.data.winner, data.data.move[1])) {
+                            const winSquaresToCheck = data.data.winner === "b" ? blackWinSquares : whiteWinSquares;
+                            highlightWinSquares(winSquaresToCheck, data.data.move[1]);
+                        }
+                        // freeze the board
                         gameOverStopBoard(data.data.winner);
                     } else {
                         // Game continues
@@ -114,6 +152,11 @@
 
                     // check for a winner
                     if(data.data.winner !== null) {
+                        // highlight the win squares if a pawn win
+                        if(shouldHighlightWinSquares(data.data.winner, data.data.move[1])) {
+                            const winSquaresToCheck = data.data.winner === "b" ? blackWinSquares : whiteWinSquares;
+                            highlightWinSquares(winSquaresToCheck, data.data.move[1]);
+                        }
                         gameOverStopBoard(data.data.winner);
                     }
                 }
@@ -319,7 +362,7 @@
                 </div>
             {:else if showRulesDuringGame}
                 <div class="side-section">
-                    <Rules />
+                    <Rules {highlightWinSquares} />
                 </div>
             {/if}
         </div>
@@ -329,7 +372,7 @@
                 <p>
                     Loading...
                 </p>
-                <Chessground bind:reset bind:cg bind:updateBoard bind:gameOverStopBoard {colorMap} {sendMessage}/>
+                <Chessground bind:reset bind:cg bind:updateBoard bind:gameOverStopBoard {colorMap} {sendMessage} {highlightWinSquares} {shouldHighlightWinSquares}/>
             </div>
             {#if !$gameSettings.isPlaying}
                 <div style="display: flex; justify-content: space-between;">
@@ -349,7 +392,7 @@
         <div class="side">
             {#if !$gameSettings.isPlaying}
                 <div class="side-section">
-                    <Rules />
+                    <Rules {highlightWinSquares} />
                 </div>
             {:else}
                 <!-- Clocks -->

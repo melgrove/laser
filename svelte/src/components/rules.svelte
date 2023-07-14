@@ -1,5 +1,29 @@
 <script>
     import { themeColor } from "../stores/global.js";
+    import { blackWinSquares, whiteWinSquares } from "../logic/laser.js";
+    export let highlightWinSquares;
+    // fine as local
+    let showBlackWinSquares = false;
+    let showWhiteWinSquares = false;
+
+    function highlight(color) {
+        const showing = color === "b" ? showBlackWinSquares : showWhiteWinSquares;
+        if(showing) {
+            // pass no arguments, clearing the highlights
+            highlightWinSquares();
+        } else {
+            const winSquares = color === "b" ? blackWinSquares : whiteWinSquares;
+            highlightWinSquares(winSquares);
+        }
+        // update logicals
+        if(color === "b") {
+            showWhiteWinSquares = false;
+            showBlackWinSquares = !showBlackWinSquares;
+        } else {
+            showBlackWinSquares = false;
+            showWhiteWinSquares = !showWhiteWinSquares;
+        }
+    }
 </script>
 
 <span >RULES</span>
@@ -22,7 +46,9 @@
 </div>
 <span style={`font-style: italic; color: ${$themeColor}`}>Winning</span><br>
 <div class="winning-rules" style="margin-top: 6px; margin-bottom: 10px;">
-    <span>Take your opponent's King</span> or <span>move one of your pawns to the seven squares in the opposite corner</span>, for black that's a1, a2, a3, a4, b1, c1, d1 and for white that's h8, h7, h6, h5, g8, f8, e8.
+    <span>Take your opponent's King</span> or <span>move one of your pawns to the seven squares in the opposite corner</span>,
+    for black that's a1, a2, a3, a4, b1, c1, d1 <span class="show" on:click={() => highlight("b")}>(click to {showBlackWinSquares ? "hide" : "show"})</span> and
+    for white that's h8, h7, h6, h5, g8, f8, e8 <span class="show" on:click={() => highlight("w")}>(click to {showWhiteWinSquares ? "hide" : "show"})</span>.
 </div>
 <span style={`font-style: italic; color: ${$themeColor}`}>Gameplay</span><br>
 <div class="winning-rules" style="margin-top: 6px">
@@ -75,5 +101,11 @@
     .winning-rules span {
         font-size: 14px;
         font-weight: 400;
+    }
+
+    .show {
+        text-decoration: underline;
+        cursor: pointer;
+        user-select: none;
     }
 </style>
