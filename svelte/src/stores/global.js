@@ -41,3 +41,5 @@ export const defaultBrushes = {
 };
 
 export const timeOfServerTimes = writable(null);
+
+export const isMuted = writable(false);

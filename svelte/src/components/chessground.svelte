@@ -1,8 +1,9 @@
 <script>
 import { onMount } from "svelte";
 import { Chessground } from 'chessground';
-import { getLegalMoves, getSquaresBetween, getResult, whiteWinSquares, blackWinSquares } from "../logic/laser.js";
 import { isGameCreated, gameSettings, themeColor, defaultBrushes, initialFen, initialFenPremove } from "../stores/global.js";
+import { getLegalMoves, getSquaresBetween, getResult, whiteWinSquares, blackWinSquares, isMoveCapture } from "../logic/laser.js";
+import { playSound } from "../logic/sound.js";
 export let reset;
 export let cg = {set: () => {}, move: () => {}};
 export let updateBoard = () => {};
@@ -37,8 +38,12 @@ let chessgroundElement;
 
 onMount(() => {
     updateBoard = (orig, dest) => {
-        // Move laser back if it has shot
+
+        // Laser
         if(cg.state.pieces.get(dest).role === "queen" && orig[0] !== dest[0] && orig[1] !== dest[1]) {
+            // pew pew
+            playSound("laser");
+            // Move laser back if it has shot
             cg.set({animation: {enabled: false}})
             cg.move(dest, orig)
             cg.set({animation: {enabled: true}})
@@ -52,6 +57,14 @@ onMount(() => {
                 dest,
                 brush: $themeColor
             }])
+        } else {
+            // use the previous fen to see if it was a capture or not
+            const isCapture = isMoveCapture(dest, $gameSettings.fen ?? $initialFen);
+            if(isCapture) {
+                playSound("capture");
+            } else {
+                playSound("move")
+            }
         }
 
         // Update fen

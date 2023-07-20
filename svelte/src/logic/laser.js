@@ -197,3 +197,13 @@ export function getSquaresBetween(orig, dest) {
     }
     return squares;
 }
+
+export function isMoveCapture(dest, fen) {
+    const position = new Chess(fen, true);
+    const squareLookup = Object.fromEntries(position.board()
+        .reduce((acc, el) => [...acc, ...el], [])
+        .filter(e => e !== null)
+        .map(e => [e.square, e]));
+
+    return dest in squareLookup;
+}
