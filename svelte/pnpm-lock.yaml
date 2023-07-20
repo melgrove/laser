@@ -5,9 +5,12 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  chess.js:
+    specifier: git+https://github.com/melgrove/chess.js.git
+    version: github.com/melgrove/chess.js/998e36702b6ec4239ddaaee7bc95b2173160539f
   chessground:
-    specifier: ^8.3.10
-    version: 8.3.10
+    specifier: git+https://github.com/melgrove/chessground.git
+    version: github.com/melgrove/chessground/babee43dde4e41286f65dea19de26bb60f87546d
 
 devDependencies:
   '@sveltejs/adapter-auto':
@@ -16,6 +19,9 @@ devDependencies:
   '@sveltejs/kit':
     specifier: ^1.20.4
     version: 1.20.5(svelte@4.0.0)(vite@4.3.9)
+  carbon-components-svelte:
+    specifier: ^0.76.0
+    version: 0.76.1
   svelte:
     specifier: ^4.0.0
     version: 4.0.0
@@ -374,9 +380,11 @@ packages:
       streamsearch: 1.1.0
     dev: true
 
-  /chessground@8.3.10:
-    resolution: {integrity: sha512-tYJ9IKR3N+2EP2DCYX3AMcPTCa2ZfOf988tYFHCaPFQ6i/9CQstDteLtrWtOWQjPV3qHXVmsbeCtyhUP0eqS3Q==}
-    dev: false
+  /carbon-components-svelte@0.76.1:
+    resolution: {integrity: sha512-WUtlEZ+DYqxcrNVopBZ4uwvPvsScY9UzIYCDvLleYNTGPmdWmSmuU1Z3MDBOgCiihbub1dYapVxJgbYPgRA1Rg==}
+    dependencies:
+      flatpickr: 4.6.9
+    dev: true
 
   /code-red@1.0.3:
     resolution: {integrity: sha512-kVwJELqiILQyG5aeuyKFbdsI1fmQy1Cmf7dQ8eGmVuJoaRVdwey7WaMknr2ZFeVSYSKT0rExsa8EGw0aoI/1QQ==}
@@ -465,6 +473,10 @@ packages:
     resolution: {integrity: sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==}
     dependencies:
       '@types/estree': 1.0.1
+    dev: true
+
+  /flatpickr@4.6.9:
+    resolution: {integrity: sha512-F0azNNi8foVWKSF+8X+ZJzz8r9sE1G4hl06RyceIaLvyltKvDl6vqk9Lm/6AUUCi5HWaIjiUbk7UpeE/fOXOpw==}
     dev: true
 
   /fsevents@2.3.2:
@@ -672,3 +684,17 @@ packages:
     dependencies:
       vite: 4.3.9
     dev: true
+
+  github.com/melgrove/chess.js/998e36702b6ec4239ddaaee7bc95b2173160539f:
+    resolution: {tarball: https://codeload.github.com/melgrove/chess.js/tar.gz/998e36702b6ec4239ddaaee7bc95b2173160539f}
+    name: chess.js
+    version: 1.0.0-beta.6
+    dev: false
+
+  github.com/melgrove/chessground/babee43dde4e41286f65dea19de26bb60f87546d:
+    resolution: {tarball: https://codeload.github.com/melgrove/chessground/tar.gz/babee43dde4e41286f65dea19de26bb60f87546d}
+    name: chessground
+    version: 8.3.12
+    prepare: true
+    requiresBuild: true
+    dev: false
